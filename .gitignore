@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Model files (large) - but keep best_model.h5 for submission
+models/*.h5
+!models/best_model.h5
+!models/final_vegetable_model.h5
+models/*.pkl
+models/*.tf
+models/*.keras
+
+# Data directories (large) - keep structure but ignore large image files
+data/train/**/*.jpg
+data/train/**/*.png
+data/test/**/*.jpg
+data/test/**/*.png
+data/validation/**/*.jpg
+data/validation/**/*.png
+data/retrain_uploads/
+data/Vegetable Images/
+
+# Results and reports
+results/
+*.html
+*.csv
+!requirements.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docker
+.dockerignore
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+

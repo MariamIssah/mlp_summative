@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount code for live updates (no rebuild needed)
+      - ./api:/app/api
+      - ./src:/app/src
+      - ./data:/app/data
+      # Models are already in image, but mount if you want to update them
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+
