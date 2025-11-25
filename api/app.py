@@ -7,16 +7,35 @@ from typing import List
 
 app = FastAPI(title="Vegetable Classification API")
 
-MODEL_PATH = "/app/models/best_model.h5"
+# Determine model path - works for both Docker and Render
+if os.path.exists("/app/models/best_model.h5"):
+    MODEL_PATH = "/app/models/best_model.h5"  # Docker path
+elif os.path.exists("models/best_model.h5"):
+    MODEL_PATH = "models/best_model.h5"  # Render/local path
+else:
+    # Fallback: relative to project root
+    MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "best_model.h5")
+
 model = None
 
-def load_model():
+def load_model(model_path=None):
     """Load or reload the model"""
-    global model
-    model = load_trained_model(MODEL_PATH)
+    global model, MODEL_PATH
+    if model_path:
+        MODEL_PATH = model_path
+    try:
+        model = load_trained_model(MODEL_PATH)
+        print(f"Model loaded successfully from {MODEL_PATH}")
+    except Exception as e:
+        print(f"Error loading model from {MODEL_PATH}: {e}")
+        raise
 
 # Load model at startup
-load_model()
+try:
+    load_model()
+except Exception as e:
+    print(f"Failed to load model at startup: {e}")
+    model = None
 
 # REAL CLASS LIST (MUST MATCH TRAINING ORDER)
 class_names = [
@@ -35,6 +54,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     try:
+        if model is None:
+            return JSONResponse(
+                status_code=503, 
+                content={"error": "Model not loaded. Please check server logs."}
+            )
         result = predict_image(model, file.file, class_names)
         return result
     except Exception as e:
@@ -66,7 +90,20 @@ async def retrain(files: List[UploadFile] = File(...)):
         )
 
         # Reload the model after retraining
-        load_model()
+        # Check if model was saved to Docker path or relative path
+        if os.path.exists("/app/models/best_model.h5"):
+            reload_path = "/app/models/best_model.h5"
+        elif os.path.exists("models/best_model.h5"):
+            reload_path = "models/best_model.h5"
+        else:
+            # Try relative path from project root
+            reload_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), new_model_path)
+        
+        try:
+            load_model(reload_path)
+        except Exception as e:
+            print(f"Warning: Could not reload model after retraining: {e}")
+            # Model might still be usable, continue
 
         return {
             "message": result["message"],
