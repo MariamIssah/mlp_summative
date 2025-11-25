@@ -52,7 +52,7 @@ async def retrain(files: List[UploadFile] = File(...)):
                 content = await file.read()
                 f.write(content)
             uploaded_files.append(file_path)
-        
+
         num_classes = len(class_names)
         new_model_path = "models/best_model.h5"
 
