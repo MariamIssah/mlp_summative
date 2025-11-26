@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y git git-lfs && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
-COPY requirements.txt .
+# Use requirements-api.txt for API deployment (includes TensorFlow)
+COPY requirements-api.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all application code (including models, data, scripts, etc.)

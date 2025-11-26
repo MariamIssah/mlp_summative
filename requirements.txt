@@ -1,13 +1,8 @@
-fastapi
-uvicorn
-tensorflow
-pillow
-numpy
-python-multipart
-scipy
-keras
-locust
-streamlit
-matplotlib
-requests
-pandas
+# Minimal requirements for Streamlit Cloud deployment
+# The Streamlit app only needs these packages (TensorFlow is not required)
+streamlit>=1.28.0
+requests>=2.31.0
+pillow>=10.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+pandas>=2.0.0
