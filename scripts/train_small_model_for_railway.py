@@ -6,16 +6,31 @@ from src.preprocessing import get_data_generators
 
 
 def build_small_model(num_classes: int = 15):
-    """Build a very small model to minimize memory usage on Railway"""
+    """Build a small but effective model for Railway deployment"""
     inputs = layers.Input(shape=(224, 224, 3))
-    # Even smaller architecture
-    x = layers.Conv2D(8, 3, activation="relu")(inputs)  # Reduced from 16
+    
+    # Better architecture for accuracy while keeping size reasonable
+    x = layers.Conv2D(32, 3, activation="relu", padding="same")(inputs)
+    x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D(2, 2)(x)
-    x = layers.Conv2D(16, 3, activation="relu")(x)  # Reduced from 32
+    x = layers.Dropout(0.25)(x)
+    
+    x = layers.Conv2D(64, 3, activation="relu", padding="same")(x)
+    x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D(2, 2)(x)
+    x = layers.Dropout(0.25)(x)
+    
+    x = layers.Conv2D(128, 3, activation="relu", padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling2D(2, 2)(x)
+    x = layers.Dropout(0.5)(x)
+    
     x = layers.Flatten()(x)
-    x = layers.Dense(32, activation="relu")(x)  # Reduced from 64
+    x = layers.Dense(128, activation="relu")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
+    
     model = models.Model(inputs, outputs)
     model.compile(
         optimizer="adam",
@@ -75,13 +90,40 @@ if __name__ == "__main__":
         except RuntimeError as e:
             print(f"GPU config error: {e}")
     
-    # Train with just 1 epoch to minimize memory usage
+    # Train with multiple epochs for better accuracy
+    # Use callbacks to save best model and early stopping
+    from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+    
+    callbacks = [
+        EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True, verbose=1),
+        ModelCheckpoint(out_path, monitor='val_loss', save_best_only=True, verbose=1),
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-7, verbose=1)
+    ]
+    
+    # Train for up to 5 epochs (will stop early if validation doesn't improve)
+    # This balances accuracy with build time
+    print("Starting training with early stopping...")
     history = model.fit(
         train_gen,
         validation_data=val_gen,
-        epochs=1,  # Reduced to 1 epoch to save memory
+        epochs=5,  # Will stop early if no improvement
+        callbacks=callbacks,
         verbose=1
     )
+    
+    # Load the best model (saved by ModelCheckpoint)
+    from tensorflow.keras.models import load_model
+    if os.path.exists(out_path):
+        model = load_model(out_path)
+        print("✓ Loaded best model from checkpoint")
+        
+        # Evaluate final accuracy
+        final_train_acc = history.history['accuracy'][-1] if 'accuracy' in history.history else 0
+        final_val_acc = history.history['val_accuracy'][-1] if 'val_accuracy' in history.history else 0
+        print(f"Final training accuracy: {final_train_acc:.4f}")
+        print(f"Final validation accuracy: {final_val_acc:.4f}")
+    else:
+        print("Warning: Best model checkpoint not found, using current model")
 
     # Save to the path expected by the API (/app/models/best_model.h5)
     out_path = os.path.join(base_dir, "models", "best_model.h5")
