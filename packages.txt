@@ -1,3 +1,0 @@
-# This file is used by Streamlit Cloud to install system dependencies
-# Not needed for this project, but kept for compatibility
-

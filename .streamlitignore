@@ -1,0 +1,14 @@
+# Ignore large data directories to reduce file watching
+data/train/**
+data/validation/**
+data/test/**
+models/*.h5
+notebook/**
+*.ipynb
+__pycache__/**
+*.pyc
+.git/**
+.DS_Store
+*.log
+results/**
+
