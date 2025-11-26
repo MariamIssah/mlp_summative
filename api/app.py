@@ -21,14 +21,31 @@ async def startup_event():
     print("Model loading may still be in progress")
     print("Service is ready to accept requests")
 
-# Determine model path - works for both Docker and Render
-if os.path.exists("/app/models/best_model.h5"):
-    MODEL_PATH = "/app/models/best_model.h5"  # Docker path
-elif os.path.exists("models/best_model.h5"):
-    MODEL_PATH = "models/best_model.h5"  # Render/local path
+# Determine BASE_DIR first (needed for model paths)
+if os.path.exists("/app"):
+    BASE_DIR = "/app"  # Docker/Railway container
 else:
-    # Fallback: relative to project root
-    MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "best_model.h5")
+    BASE_DIR = os.path.dirname(os.path.dirname(__file__)) if os.path.dirname(__file__) else os.getcwd()
+
+# Determine model path - works for both Docker and Render
+MODEL_PATH = None
+possible_model_paths = [
+    "/app/models/best_model.h5",  # Docker/Railway path (created during build)
+    os.path.join(BASE_DIR, "models", "best_model.h5"),  # Relative to BASE_DIR
+    "models/best_model.h5",  # Relative path
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "best_model.h5"),  # Fallback
+]
+
+# Find the first existing model path
+for path in possible_model_paths:
+    if path and os.path.exists(path):
+        MODEL_PATH = path
+        print(f"Found model file at: {path}")
+        break
+
+if not MODEL_PATH:
+    MODEL_PATH = "/app/models/best_model.h5"  # Default to Docker path
+    print(f"No existing model found, will use default path: {MODEL_PATH}")
 
 model = None
 
@@ -46,25 +63,36 @@ def load_model(model_path=None):
     possible_paths = [
         MODEL_PATH,
         "/app/models/best_model.h5",
-        "models/best_model.h5",
         os.path.join(BASE_DIR, "models", "best_model.h5"),
+        "models/best_model.h5",
     ]
     
+    # Remove duplicates and None values
+    possible_paths = list(dict.fromkeys([p for p in possible_paths if p]))
+    
+    print(f"Attempting to load model. Checking paths: {possible_paths}")
+    
     for path in possible_paths:
+        print(f"Checking if model exists at: {path}")
         if path and os.path.exists(path):
-            print(f"Attempting to load model from {path}...")
+            file_size = os.path.getsize(path) / (1024 * 1024)  # Size in MB
+            print(f"Found model file at {path} ({file_size:.2f} MB). Attempting to load...")
             try:
                 model_local = load_trained_model(path)
                 model = model_local
                 MODEL_PATH = path
-                print(f"Model loaded successfully from {path}")
+                print(f"✓ Model loaded successfully from {path}")
                 return True
             except Exception as e:
-                print(f"Error loading model from {path}: {e}")
+                print(f"✗ Error loading model from {path}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
+        else:
+            print(f"  Model file not found at: {path}")
     
-    print(f"Model not found in any of the expected locations: {possible_paths}")
-    print("Model will be created on first /retrain call")
+    print(f"✗ Model not found in any of the expected locations: {possible_paths}")
+    print("  Model will need to be created via /retrain endpoint")
     model = None
     return False
 
@@ -111,11 +139,7 @@ class_names = [
     "Papaya", "Potato", "Pumpkin", "Radish", "Tomato"
 ]
 
-# Paths to training and test data (match your folder structure)
-if os.path.exists("/app"):
-    BASE_DIR = "/app"  # Docker/Render container
-else:
-    BASE_DIR = os.path.dirname(os.path.dirname(__file__)) if os.path.dirname(__file__) else os.getcwd()
+# BASE_DIR already set above, no need to set again
 
 DATA_VARIANT = os.getenv("DATA_VARIANT", "auto").lower()
 

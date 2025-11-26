@@ -22,14 +22,24 @@ COPY . /app
 # This ensures predictions work even if training fails
 RUN mkdir -p /app/models && \
     cd /app && \
+    echo "Creating dummy model..." && \
     python scripts/create_dummy_model.py && \
-    if [ -f "models/best_model.h5" ]; then \
-        echo "Model file created successfully"; \
-        ls -lh models/best_model.h5; \
+    echo "Checking for model file..." && \
+    if [ -f "/app/models/best_model.h5" ]; then \
+        echo "✓ Model file exists at /app/models/best_model.h5"; \
+        ls -lh /app/models/best_model.h5; \
+    elif [ -f "models/best_model.h5" ]; then \
+        echo "✓ Model file exists at models/best_model.h5, copying to /app/models/"; \
+        cp models/best_model.h5 /app/models/best_model.h5 && \
+        ls -lh /app/models/best_model.h5; \
     else \
-        echo "ERROR: Model file was not created"; \
+        echo "✗ ERROR: Model file was not created in either location"; \
+        echo "Checking what files exist:"; \
+        ls -la /app/models/ || echo "models directory is empty"; \
+        ls -la models/ 2>/dev/null || echo "local models directory not found"; \
         exit 1; \
-    fi
+    fi && \
+    echo "Model setup verification complete"
 
 # Ensure start script is executable
 RUN chmod +x /app/start.sh
