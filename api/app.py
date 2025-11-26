@@ -42,14 +42,31 @@ def load_model(model_path=None):
     if model_path:
         MODEL_PATH = model_path
 
-    print(f"Attempting to load model from {MODEL_PATH}...")
-    try:
-        model_local = load_trained_model(MODEL_PATH)
-        model = model_local
-        print(f"Model loaded successfully from {MODEL_PATH}")
-    except Exception as e:
-        print(f"Error loading model from {MODEL_PATH}: {e}")
-        # Leave model as None; /predict will return 503 in this case
+    # Try multiple possible model paths
+    possible_paths = [
+        MODEL_PATH,
+        "/app/models/best_model.h5",
+        "models/best_model.h5",
+        os.path.join(BASE_DIR, "models", "best_model.h5"),
+    ]
+    
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            print(f"Attempting to load model from {path}...")
+            try:
+                model_local = load_trained_model(path)
+                model = model_local
+                MODEL_PATH = path
+                print(f"Model loaded successfully from {path}")
+                return True
+            except Exception as e:
+                print(f"Error loading model from {path}: {e}")
+                continue
+    
+    print(f"Model not found in any of the expected locations: {possible_paths}")
+    print("Model will be created on first /retrain call")
+    model = None
+    return False
 
 # Load model at startup
 # For local development, load immediately; for Railway, load in background
@@ -149,7 +166,11 @@ async def predict(file: UploadFile = File(...)):
         if model is None:
             return JSONResponse(
                 status_code=503, 
-                content={"error": "Model not loaded. Please check server logs."}
+                content={
+                    "error": "Model not loaded. The model file is missing or failed to load.",
+                    "model_path": MODEL_PATH,
+                    "suggestion": "Use the /retrain endpoint to train a model first, or ensure a model file exists at the expected path."
+                }
             )
         result = predict_image(model, file.file, class_names)
         return result
@@ -194,21 +215,39 @@ async def retrain(files: List[UploadFile] = File(...)):
         # Use absolute path for model save
         if os.path.exists("/app/models"):
             new_model_path = "/app/models/best_model.h5"
+            os.makedirs("/app/models", exist_ok=True)
         else:
             new_model_path = os.path.join(BASE_DIR, "models", "best_model.h5")
+            os.makedirs(os.path.dirname(new_model_path), exist_ok=True)
 
         # Call retrain_model to train from scratch
-        # Note: Using 1 epoch for Render free tier to avoid timeout
+        # Note: Using 1 epoch for Railway free tier to avoid timeout
         # For production with more epochs, consider using background jobs
-        print(f"Starting retraining with 1 epoch (reduced for timeout limits)...")
-        result = retrain_model(
-            TRAIN_DIR, 
-            VAL_DIR, 
-            num_classes, 
-            new_model_path,
-            epochs=1  # Reduced to 1 for Render free tier timeout limits
-        )
-        print(f"Retraining completed successfully")
+        print(f"Starting retraining with 1 epoch (reduced for Railway timeout limits)...")
+        print(f"Training data: {TRAIN_DIR}, Validation data: {VAL_DIR}")
+        print(f"Model will be saved to: {new_model_path}")
+        
+        try:
+            result = retrain_model(
+                TRAIN_DIR, 
+                VAL_DIR, 
+                num_classes, 
+                new_model_path,
+                epochs=1  # Reduced to 1 for Railway free tier timeout limits
+            )
+            print(f"Retraining completed successfully")
+        except Exception as train_error:
+            error_msg = f"Training failed: {str(train_error)}"
+            print(error_msg)
+            print(traceback.format_exc())
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": error_msg,
+                    "error_type": type(train_error).__name__,
+                    "suggestion": "Training may have timed out or run out of memory. Try with fewer images or run locally."
+                }
+            )
 
         # Reload the model after retraining
         # Check if model was saved to Docker path or relative path

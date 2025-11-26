@@ -18,13 +18,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all application code (including models, data, scripts, etc.)
 COPY . /app
 
-# For Railway free tier: Skip training during build to avoid OOM errors
-# Instead, use a pre-trained small model or train on first /retrain call
-# If you have a small pre-trained model, it will be copied from models/ directory
-RUN mkdir -p /app/models
-
-# Optional: Uncomment below to train during build (may cause OOM on free tier)
-# RUN export TF_CPP_MIN_LOG_LEVEL=2 && python scripts/train_small_model_for_railway.py
+# Train a minimal model during build (optimized for Railway free tier)
+# This ensures a model is available for predictions
+RUN mkdir -p /app/models && \
+    export TF_CPP_MIN_LOG_LEVEL=2 && \
+    export TF_FORCE_GPU_ALLOW_GROWTH=true && \
+    python scripts/train_small_model_for_railway.py || \
+    echo "Model training failed during build - will need to train via /retrain endpoint"
 
 # Ensure start script is executable
 RUN chmod +x /app/start.sh
