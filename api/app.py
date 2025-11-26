@@ -19,6 +19,7 @@ async def startup_event():
     print("FastAPI application startup complete")
     print("Health check endpoints are ready")
     print("Model loading may still be in progress")
+    print("Service is ready to accept requests")
 
 # Determine model path - works for both Docker and Render
 if os.path.exists("/app/models/best_model.h5"):
@@ -255,16 +256,21 @@ async def retrain(files: List[UploadFile] = File(...)):
 @app.get("/")
 def home():
     """Health check endpoint for Railway - responds immediately"""
-    return {
-        "message": "Vegetable Classification API is running", 
-        "status": "healthy",
-        "model_loaded": model is not None
-    }
+    # Always return 200 OK - Railway needs this to keep container alive
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "Vegetable Classification API is running", 
+            "status": "healthy",
+            "model_loaded": model is not None
+        }
+    )
 
 @app.head("/")
 def health_head():
-    """HEAD endpoint for Railway health checks"""
-    return Response(status_code=200)
+    """HEAD endpoint for Railway health checks - critical for keeping container alive"""
+    # Return 200 immediately - Railway uses this to verify service is alive
+    return Response(status_code=200, headers={"Content-Type": "application/json"})
 
 @app.get("/health")
 def health():
