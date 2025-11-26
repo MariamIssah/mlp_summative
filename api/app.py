@@ -132,12 +132,16 @@ else:
     else:
         print("Model loaded successfully at startup")
 
-# REAL CLASS LIST (MUST MATCH TRAINING ORDER)
+# REAL CLASS LIST (MUST MATCH TRAINING ORDER - alphabetical by folder name)
+# ImageDataGenerator uses alphabetical order of folder names
+# This list must match the order returned by train_gen.class_indices
 class_names = [
     "Bean", "Bitter_Gourd", "Bottle_Gourd", "Brinjal", "Broccoli",
     "Cabbage", "Capsicum", "Carrot", "Cauliflower", "Cucumber",
     "Papaya", "Potato", "Pumpkin", "Radish", "Tomato"
 ]
+# Note: If predictions are wrong, the class order might not match the data generator's order
+# The data generator uses alphabetical order of folder names in the training directory
 
 # BASE_DIR already set above, no need to set again
 
