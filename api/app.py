@@ -8,6 +8,15 @@ import traceback
 
 app = FastAPI(title="Vegetable Classification API")
 
+# Log port for Railway debugging
+PORT = int(os.getenv("PORT", 8000))
+print(f"Starting server on port {PORT}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Log startup completion for Railway health checks"""
+    print("FastAPI application startup complete")
+
 # Determine model path - works for both Docker and Render
 if os.path.exists("/app/models/best_model.h5"):
     MODEL_PATH = "/app/models/best_model.h5"  # Docker path
@@ -208,9 +217,15 @@ async def retrain(files: List[UploadFile] = File(...)):
 
 @app.get("/")
 def home():
-    return {"message": "Vegetable Classification API is running "}
-
+    """Health check endpoint for Railway"""
+    return {"message": "Vegetable Classification API is running", "status": "healthy"}
 
 @app.head("/")
 def health_head():
+    """HEAD endpoint for Railway health checks"""
     return Response(status_code=200)
+
+@app.get("/health")
+def health():
+    """Explicit health check endpoint"""
+    return {"status": "healthy", "model_loaded": model is not None}
