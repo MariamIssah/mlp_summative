@@ -12,7 +12,7 @@ The pipeline demonstrates the full ML lifecycle from data acquisition through de
 
 ## Video Demo
 
-[YouTube Video Link - To be added]
+**YouTube Video Link:** https://youtu.be/8dplIxMLBFI
 
 The video demonstration covers:
 
@@ -23,13 +23,15 @@ The video demonstration covers:
 
 ## Deployment URL
 
-[Cloud Deployment URL - To be added]
+**Cloud Deployment URL:** https://mlpsummative-production.up.railway.app
 
 The application is deployed and accessible at the above URL. The deployment includes:
 
-- FastAPI backend service
-- Streamlit web interface
+- FastAPI backend service with prediction and retraining endpoints
 - Model serving endpoints
+- Health check endpoints
+
+**Note:** The Streamlit UI is run locally and connects to the deployed API. For full functionality including retraining, the API can also be run locally using `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
 
 ## Features
 
@@ -162,12 +164,13 @@ streamlit run streamlit_app.py
 
 ### Railway Deployment Notes
 
+- **Deployed URL:** https://mlpsummative-production.up.railway.app
 - Railway automatically injects a `PORT` environment variable; the Dockerfile uses a start script that properly handles this.
 - Add `DATA_VARIANT=mini` (or `auto`) in Project Settings → Variables so that retraining uses the bundled minimal dataset.
-- Confirm the Git repository includes `data/train_min/**` and `data/validation_min/**` before triggering a deploy; otherwise `/retrain` will fail with missing directory errors.
-- **Model File (Git LFS)**: The model file (`models/best_model.h5`) is tracked by Git LFS. If Railway's build shows "file signature not found" errors, the model file may be a Git LFS pointer. Ensure Git LFS files are pulled locally before pushing, or the model will need to be loaded separately. The API will start successfully even if the model fails to load initially.
+- **Deployed Model:** The model deployed on Railway is a lightweight CNN trained on the mini dataset (`data/train_min`, `data/validation_min`) during Docker image build. This smaller model has lower accuracy than the full model but demonstrates the complete prediction pipeline in production. The full, high-accuracy model (`models/best_model.h5`) is used and evaluated locally in the notebook and Docker environment.
+- **Retraining:** The `/retrain` endpoint may timeout (502 error) on Railway's free tier due to resource limits. Full retraining functionality is demonstrated locally. The deployed API focuses on prediction capabilities.
 - Railway health checks issue `HEAD /` and `GET /` requests. The service will start and remain running even if the model is still loading in the background.
-- Test your deployment at `https://<railway-app>.up.railway.app/docs` once the service is running.
+- Test your deployment at `https://mlpsummative-production.up.railway.app/docs` once the service is running.
 
 ### API Endpoints
 
