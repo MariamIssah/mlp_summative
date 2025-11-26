@@ -24,13 +24,13 @@ models/*.pkl
 models/*.tf
 models/*.keras
 
-# Data directories (large) - keep structure but ignore large image files
-data/train/**/*.jpg
-data/train/**/*.png
+# Data directories (large) - now using Git LFS for train/validation images
+# data/train/**/*.jpg  # Tracked with Git LFS
+# data/train/**/*.png  # Tracked with Git LFS
 data/test/**/*.jpg
 data/test/**/*.png
-data/validation/**/*.jpg
-data/validation/**/*.png
+# data/validation/**/*.jpg  # Tracked with Git LFS
+# data/validation/**/*.png  # Tracked with Git LFS
 data/retrain_uploads/
 data/Vegetable Images/
 
