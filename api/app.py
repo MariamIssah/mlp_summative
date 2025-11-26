@@ -5,6 +5,7 @@ from src.retrain import retrain_model
 import os
 from typing import List
 import traceback
+import threading
 
 app = FastAPI(title="Vegetable Classification API")
 
@@ -16,6 +17,8 @@ print(f"Starting server on port {PORT}")
 async def startup_event():
     """Log startup completion for Railway health checks"""
     print("FastAPI application startup complete")
+    print("Health check endpoints are ready")
+    print("Model loading may still be in progress")
 
 # Determine model path - works for both Docker and Render
 if os.path.exists("/app/models/best_model.h5"):
@@ -40,12 +43,21 @@ def load_model(model_path=None):
         print(f"Error loading model from {MODEL_PATH}: {e}")
         raise
 
-# Load model at startup
-try:
-    load_model()
-except Exception as e:
-    print(f"Failed to load model at startup: {e}")
-    model = None
+# Load model at startup (non-blocking for health checks)
+# Model loading happens in background to allow health checks to respond quickly
+def load_model_background():
+    """Load model in background thread"""
+    try:
+        load_model()
+        print("Model loaded successfully in background")
+    except Exception as e:
+        print(f"Failed to load model at startup: {e}")
+        print("API will continue running but predictions will fail until model is loaded")
+
+# Start model loading in background
+model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
+model_loading_thread.start()
+print("Model loading started in background thread")
 
 # REAL CLASS LIST (MUST MATCH TRAINING ORDER)
 class_names = [
@@ -217,8 +229,12 @@ async def retrain(files: List[UploadFile] = File(...)):
 
 @app.get("/")
 def home():
-    """Health check endpoint for Railway"""
-    return {"message": "Vegetable Classification API is running", "status": "healthy"}
+    """Health check endpoint for Railway - responds immediately"""
+    return {
+        "message": "Vegetable Classification API is running", 
+        "status": "healthy",
+        "model_loaded": model is not None
+    }
 
 @app.head("/")
 def health_head():
