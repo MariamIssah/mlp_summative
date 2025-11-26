@@ -20,11 +20,19 @@ COPY . /app
 
 # Train a minimal model during build (optimized for Railway free tier)
 # This ensures a model is available for predictions
+# If training fails due to memory, the build will continue and model can be trained via /retrain
 RUN mkdir -p /app/models && \
-    export TF_CPP_MIN_LOG_LEVEL=2 && \
-    export TF_FORCE_GPU_ALLOW_GROWTH=true && \
-    python scripts/train_small_model_for_railway.py || \
-    echo "Model training failed during build - will need to train via /retrain endpoint"
+    if [ -f "models/best_model.h5" ]; then \
+        echo "Using existing model file from repository"; \
+        cp models/best_model.h5 /app/models/best_model.h5 || true; \
+    else \
+        echo "No existing model found, training new minimal model..."; \
+        export TF_CPP_MIN_LOG_LEVEL=2 && \
+        export TF_FORCE_GPU_ALLOW_GROWTH=true && \
+        python scripts/train_small_model_for_railway.py && \
+        echo "Model training completed successfully" || \
+        echo "WARNING: Model training failed during build - model will need to be trained via /retrain endpoint"; \
+    fi
 
 # Ensure start script is executable
 RUN chmod +x /app/start.sh

@@ -80,21 +80,29 @@ if os.path.exists("models/best_model.h5") or not os.path.exists("/app"):
         print(f"Failed to load model at startup: {e}")
         model = None
 else:
-    # Railway/Docker - load in background to allow health checks
-    def load_model_background():
-        """Load model in background thread"""
-        import time
-        time.sleep(2)  # Give Railway time to complete health checks first
-        try:
-            load_model()
-            print("Model loaded successfully in background")
-        except Exception as e:
-            print(f"Failed to load model at startup: {e}")
-            print("API will continue running but predictions will fail until model is loaded")
+    # Railway/Docker - try to load immediately, then retry in background if needed
+    print("Attempting to load model on Railway/Docker...")
+    model_loaded = load_model()
     
-    model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
-    model_loading_thread.start()
-    print("Model loading started in background thread")
+    if not model_loaded:
+        # If immediate load failed, try in background (might be still training during build)
+        def load_model_background():
+            """Load model in background thread with retries"""
+            import time
+            max_retries = 5
+            for attempt in range(max_retries):
+                time.sleep(5 * (attempt + 1))  # Wait longer each retry
+                print(f"Background model load attempt {attempt + 1}/{max_retries}...")
+                if load_model():
+                    print("Model loaded successfully in background")
+                    return
+            print("Failed to load model after all retries. Use /retrain endpoint to create a model.")
+        
+        model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
+        model_loading_thread.start()
+        print("Model loading started in background thread (will retry if needed)")
+    else:
+        print("Model loaded successfully at startup")
 
 # REAL CLASS LIST (MUST MATCH TRAINING ORDER)
 class_names = [
@@ -311,5 +319,6 @@ def health():
     return {
         "status": "healthy", 
         "model_loaded": model is not None,
+        "model_path": MODEL_PATH if model is not None else "No model loaded",
         "service": "vegetable-classification-api"
     }
