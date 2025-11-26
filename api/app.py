@@ -36,23 +36,48 @@ def load_model(model_path=None):
     global model, MODEL_PATH
     if model_path:
         MODEL_PATH = model_path
+    
+    # Check if model file exists and is valid
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+    
+    # Check if file is a Git LFS pointer (starts with "version https://git-lfs")
+    try:
+        with open(MODEL_PATH, 'r', encoding='utf-8') as f:
+            first_line = f.readline()
+            if first_line.startswith('version https://git-lfs'):
+                raise ValueError(f"Model file at {MODEL_PATH} is a Git LFS pointer, not the actual file. Please ensure Git LFS files are properly pulled.")
+    except (UnicodeDecodeError, ValueError):
+        # File is binary (good) or already raised our error
+        pass
+    
+    # Check file size (H5 files should be > 1MB, pointers are < 1KB)
+    file_size = os.path.getsize(MODEL_PATH)
+    if file_size < 1024:  # Less than 1KB is suspicious
+        raise ValueError(f"Model file at {MODEL_PATH} is too small ({file_size} bytes). It may be a Git LFS pointer. Actual model files are typically > 100MB.")
+    
     try:
         model = load_trained_model(MODEL_PATH)
-        print(f"Model loaded successfully from {MODEL_PATH}")
+        print(f"Model loaded successfully from {MODEL_PATH} (size: {file_size / (1024*1024):.2f} MB)")
     except Exception as e:
         print(f"Error loading model from {MODEL_PATH}: {e}")
+        print(f"File exists: {os.path.exists(MODEL_PATH)}, Size: {file_size} bytes")
         raise
 
 # Load model at startup (non-blocking for health checks)
 # Model loading happens in background to allow health checks to respond quickly
 def load_model_background():
     """Load model in background thread"""
+    import time
+    time.sleep(2)  # Give Railway time to complete health checks first
     try:
         load_model()
         print("Model loaded successfully in background")
     except Exception as e:
         print(f"Failed to load model at startup: {e}")
         print("API will continue running but predictions will fail until model is loaded")
+        print("This may be due to Git LFS files not being properly included in the Docker image")
+        # Don't raise - allow API to continue running
 
 # Start model loading in background
 model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
@@ -243,5 +268,9 @@ def health_head():
 
 @app.get("/health")
 def health():
-    """Explicit health check endpoint"""
-    return {"status": "healthy", "model_loaded": model is not None}
+    """Explicit health check endpoint - always returns healthy for Railway"""
+    return {
+        "status": "healthy", 
+        "model_loaded": model is not None,
+        "service": "vegetable-classification-api"
+    }

@@ -162,10 +162,12 @@ streamlit run streamlit_app.py
 
 ### Railway Deployment Notes
 
-- Railway automatically injects a `PORT` environment variable; the Dockerfile now accepts it via `uvicorn api.app:app --port ${PORT:-8000}`, so no extra command overrides are required.
+- Railway automatically injects a `PORT` environment variable; the Dockerfile uses a start script that properly handles this.
 - Add `DATA_VARIANT=mini` (or `auto`) in Project Settings → Variables so that retraining uses the bundled minimal dataset.
 - Confirm the Git repository includes `data/train_min/**` and `data/validation_min/**` before triggering a deploy; otherwise `/retrain` will fail with missing directory errors.
-- Railway health checks issue `HEAD /` requests, so keep the service running until the green checkmark appears, then open `https://<railway-app>.up.railway.app/docs` to test predict/retrain.
+- **Model File (Git LFS)**: The model file (`models/best_model.h5`) is tracked by Git LFS. If Railway's build shows "file signature not found" errors, the model file may be a Git LFS pointer. Ensure Git LFS files are pulled locally before pushing, or the model will need to be loaded separately. The API will start successfully even if the model fails to load initially.
+- Railway health checks issue `HEAD /` and `GET /` requests. The service will start and remain running even if the model is still loading in the background.
+- Test your deployment at `https://<railway-app>.up.railway.app/docs` once the service is running.
 
 ### API Endpoints
 

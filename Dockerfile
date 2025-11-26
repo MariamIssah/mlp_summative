@@ -5,11 +5,20 @@ FROM python:3.11-slim
 WORKDIR /app
 ENV PYTHONPATH=/app
 
+# Install Git and Git LFS for pulling LFS-tracked model files
+RUN apt-get update && apt-get install -y git git-lfs && \
+    git lfs install && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy models (needed at build time)
+# Copy .gitattributes to know which files are LFS-tracked
+COPY .gitattributes /app/.gitattributes
+
+# Copy models directory (if Git LFS files aren't pulled, this will copy pointers)
+# We'll verify and handle this in the application code
 COPY models /app/models
 
 # Copy all application code
