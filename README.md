@@ -169,7 +169,7 @@ streamlit run streamlit_app.py
 - **Deployed URL:** https://mlpsummative-production.up.railway.app
 - Railway automatically injects a `PORT` environment variable; the Dockerfile uses a start script that properly handles this.
 - Add `DATA_VARIANT=mini` (or `auto`) in Project Settings → Variables so that retraining uses the bundled minimal dataset.
-- **Deployed Model:** The model deployed on Railway is a lightweight CNN trained on the mini dataset (`data/train_min`, `data/validation_min`) during Docker image build. This smaller model has lower accuracy than the full model but demonstrates the complete prediction pipeline in production. The full, high-accuracy model (`models/best_model.h5`) is used and evaluated locally in the notebook and Docker environment.
+- **Deployed Model:** Due to Railway free tier memory limits, model training during Docker build is disabled. The API will start successfully, but predictions require a model to be loaded. For production use, either: 1) Train a small model locally using `scripts/train_small_model_for_railway.py` and commit it (if < 100MB), or 2) Use the `/retrain` endpoint to train a model on Railway (may have memory constraints). The full, high-accuracy model (`models/best_model.h5`) is used and evaluated locally in the notebook.
 - **Retraining:** The `/retrain` endpoint may timeout (502 error) on Railway's free tier due to resource limits. Full retraining functionality is demonstrated locally. The deployed API focuses on prediction capabilities.
 - Railway health checks issue `HEAD /` and `GET /` requests. The service will start and remain running even if the model is still loading in the background.
 - Test your deployment at `https://mlpsummative-production.up.railway.app/docs` once the service is running.

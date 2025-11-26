@@ -11,14 +11,9 @@ import time
 # -----------------------------
 # API URL (Auto-detect based on environment)
 # -----------------------------
-import os
-# Use Railway API if STREAMLIT_CLOUD environment variable is set (Streamlit Cloud)
-# or if API_URL environment variable is explicitly set
-# Otherwise, use localhost for local development
-if os.getenv("STREAMLIT_CLOUD") or os.getenv("API_URL"):
-    API_URL = os.getenv("API_URL", "https://mlpsummative-production.up.railway.app")
-else:
-    API_URL = "http://localhost:8000"
+# Use Railway API by default (hosted API)
+# For local API development, set environment variable: API_URL=http://localhost:8000
+API_URL = os.getenv("API_URL", "https://mlpsummative-production.up.railway.app")
 
 # Class names matching the model
 CLASS_NAMES = [
@@ -258,10 +253,23 @@ def visualizations_page():
     
     st.write("Explore insights from the vegetable image dataset through feature analysis.")
     
-    # Check if data directory exists
-    train_dir = "data/train"
-    if not os.path.exists(train_dir):
-        st.warning("Training data directory not found. Visualizations require the data/train directory.")
+    # Check if data directory exists - try multiple possible locations
+    train_dir = None
+    possible_paths = ["data/train", "data/train_min", "../data/train", "./data/train"]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            train_dir = path
+            break
+    
+    if not train_dir:
+        st.info("**Note:** Training data directory not found in this deployment. Visualizations require access to the training images. This feature is available when running locally with the full dataset.")
+        st.write("The visualizations demonstrate three key features:")
+        st.markdown("""
+        1. **Image Brightness Distribution** - Shows brightness levels across vegetable images
+        2. **Aspect Ratio Distribution** - Shows width-to-height ratios of images  
+        3. **Edge Density Distribution** - Measures texture complexity through edge detection
+        """)
         return
     
     # Feature 1: Brightness Distribution
@@ -276,6 +284,8 @@ def visualizations_page():
             max_samples = 500  # Limit for performance
             
             for cls in CLASS_NAMES[:5]:  # Sample from first 5 classes
+                if not train_dir:
+                    break
                 folder = os.path.join(train_dir, cls)
                 if os.path.exists(folder):
                     for img_file in os.listdir(folder)[:100]:
@@ -318,6 +328,8 @@ def visualizations_page():
             max_samples = 500
             
             for cls in CLASS_NAMES[:5]:
+                if not train_dir:
+                    break
                 folder = os.path.join(train_dir, cls)
                 if os.path.exists(folder):
                     for img_file in os.listdir(folder)[:100]:
@@ -361,6 +373,8 @@ def visualizations_page():
             max_samples = 300  # Fewer for performance (edge detection is slower)
             
             for cls in CLASS_NAMES[:5]:
+                if not train_dir:
+                    break
                 folder = os.path.join(train_dir, cls)
                 if os.path.exists(folder):
                     for img_file in os.listdir(folder)[:60]:
@@ -393,23 +407,34 @@ def visualizations_page():
 # -----------------------------
 # SIDEBAR NAVIGATION
 # -----------------------------
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Predict", "Retrain", "Visualizations"])
+try:
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", ["Home", "Predict", "Retrain", "Visualizations"])
 
-# API Status in Sidebar
-st.sidebar.divider()
-st.sidebar.markdown("### API Status")
-is_up, message = check_api_status()
-if is_up:
-    st.sidebar.success("Online")
-else:
-    st.sidebar.error("Offline")
+    # API Status in Sidebar
+    st.sidebar.divider()
+    st.sidebar.markdown("### API Status")
+    try:
+        is_up, message = check_api_status()
+        if is_up:
+            st.sidebar.success("Online")
+        else:
+            st.sidebar.error("Offline")
+    except Exception as e:
+        st.sidebar.warning(f"API check failed")
 
-if page == "Home":
-    home_page()
-elif page == "Predict":
-    prediction_page()
-elif page == "Retrain":
-    retrain_page()
-elif page == "Visualizations":
-    visualizations_page()
+    # Route to appropriate page
+    if page == "Home":
+        home_page()
+    elif page == "Predict":
+        prediction_page()
+    elif page == "Retrain":
+        retrain_page()
+    elif page == "Visualizations":
+        visualizations_page()
+except Exception as e:
+    st.error(f"An error occurred: {str(e)}")
+    st.write("Please refresh the page or check the logs.")
+    import traceback
+    with st.expander("Error Details (for debugging)"):
+        st.code(traceback.format_exc())

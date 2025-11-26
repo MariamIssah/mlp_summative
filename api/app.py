@@ -51,25 +51,33 @@ def load_model(model_path=None):
         print(f"Error loading model from {MODEL_PATH}: {e}")
         # Leave model as None; /predict will return 503 in this case
 
-# Load model at startup (non-blocking for health checks)
-# Model loading happens in background to allow health checks to respond quickly
-def load_model_background():
-    """Load model in background thread"""
-    import time
-    time.sleep(2)  # Give Railway time to complete health checks first
+# Load model at startup
+# For local development, load immediately; for Railway, load in background
+if os.path.exists("models/best_model.h5") or not os.path.exists("/app"):
+    # Local development - load immediately
+    print("Loading model immediately (local development)...")
     try:
         load_model()
-        print("Model loaded successfully in background")
+        print("Model loaded successfully at startup")
     except Exception as e:
         print(f"Failed to load model at startup: {e}")
-        print("API will continue running but predictions will fail until model is loaded")
-        print("This may be due to Git LFS files not being properly included in the Docker image")
-        # Don't raise - allow API to continue running
-
-# Start model loading in background
-model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
-model_loading_thread.start()
-print("Model loading started in background thread")
+        model = None
+else:
+    # Railway/Docker - load in background to allow health checks
+    def load_model_background():
+        """Load model in background thread"""
+        import time
+        time.sleep(2)  # Give Railway time to complete health checks first
+        try:
+            load_model()
+            print("Model loaded successfully in background")
+        except Exception as e:
+            print(f"Failed to load model at startup: {e}")
+            print("API will continue running but predictions will fail until model is loaded")
+    
+    model_loading_thread = threading.Thread(target=load_model_background, daemon=True)
+    model_loading_thread.start()
+    print("Model loading started in background thread")
 
 # REAL CLASS LIST (MUST MATCH TRAINING ORDER)
 class_names = [
