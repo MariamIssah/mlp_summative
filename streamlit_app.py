@@ -114,11 +114,21 @@ def prediction_page():
                 image.save(img_bytes, format="PNG")
                 img_bytes = img_bytes.getvalue()
                 
-                response = requests.post(
-                    f"{API_URL}/predict",
-                    files={"file": ("image.png", img_bytes, "image/png")},
-                    timeout=30
-                )
+                try:
+                    response = requests.post(
+                        f"{API_URL}/predict",
+                        files={"file": ("image.png", img_bytes, "image/png")},
+                        timeout=30
+                    )
+                except requests.exceptions.Timeout:
+                    st.error("Request timed out. The API is taking too long to respond. Please try again or check if the API is running.")
+                    return
+                except requests.exceptions.ConnectionError:
+                    st.error(f"Could not connect to API at {API_URL}. Please check if the API is running and accessible.")
+                    return
+                except Exception as e:
+                    st.error(f"Request failed: {str(e)}")
+                    return
 
             if response.status_code == 200:
                 result = response.json()
@@ -192,7 +202,19 @@ def prediction_page():
                         if diff < 10:
                             st.info(f"**Close Call**: The prediction is close between **{top_5[0][0]}** ({top_5[0][1]*100:.1f}%) and **{second_place[0]}** ({second_place[1]*100:.1f}%). Difference: {diff:.1f}%")
             else:
-                st.error("Prediction failed. Please check your API.")
+                # Show detailed error message from API
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', 'Unknown error')
+                    suggestion = error_data.get('suggestion', '')
+                    
+                    st.error(f"**Prediction failed (Status {response.status_code})**: {error_msg}")
+                    if suggestion:
+                        st.info(f"**Suggestion**: {suggestion}")
+                    if response.status_code == 503:
+                        st.warning("The model is not loaded. You may need to use the /retrain endpoint to train a model first, or check Railway logs for model loading errors.")
+                except:
+                    st.error(f"Prediction failed with status {response.status_code}. Response: {response.text[:200]}")
 
 
 # RETRAIN PAGE
