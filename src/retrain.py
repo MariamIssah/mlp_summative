@@ -28,6 +28,24 @@ def retrain_model(train_dir, val_dir, num_classes, model_save_path, epochs=10):
         logger.info(f"Training samples: {train_gen.samples}")
         logger.info(f"Validation samples: {val_gen.samples}")
         
+        # Log class indices to verify order matches class_names in api/app.py
+        # ImageDataGenerator orders classes alphabetically by folder name
+        class_indices = train_gen.class_indices
+        logger.info(f"Class indices (alphabetical order): {class_indices}")
+        
+        # Create sorted list of class names based on indices
+        sorted_classes = sorted(class_indices.items(), key=lambda x: x[1])
+        class_names_ordered = [name for name, idx in sorted_classes]
+        logger.info(f"Class names in order (from data generator): {class_names_ordered}")
+        logger.info("IMPORTANT: The class_names list in api/app.py must match this alphabetical order!")
+        
+        # Save class indices to a file for reference
+        import json
+        class_indices_path = os.path.join(os.path.dirname(model_save_path), "class_indices.json")
+        with open(class_indices_path, 'w') as f:
+            json.dump(class_indices, f, indent=2)
+        logger.info(f"Saved class indices to {class_indices_path}")
+        
         # Build new model from scratch
         logger.info("Building new model from scratch...")
         model = build_model(num_classes)

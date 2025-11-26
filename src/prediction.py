@@ -17,15 +17,26 @@ def predict_image(model, image_file, class_names):
     
     # Get probabilities for all classes
     probabilities = preds[0].tolist()
+    
+    # Check if this looks like a dummy model (all probabilities very similar = random)
+    max_prob = max(probabilities)
+    min_prob = min(probabilities)
+    prob_range = max_prob - min_prob
+    is_likely_dummy = prob_range < 0.1  # If all probabilities are within 10%, likely dummy model
 
     if pred_index >= len(class_names):
         raise ValueError("Predicted index out of class range")
 
-    # Return top prediction and all probabilities
-    return {
+    result = {
         "prediction": class_names[pred_index],
         "confidence": float(probabilities[pred_index]),
         "all_probabilities": {
             class_names[i]: float(prob) for i, prob in enumerate(probabilities)
         }
     }
+    
+    # Add warning if model appears to be dummy/untrained
+    if is_likely_dummy:
+        result["warning"] = "Model appears to have random weights (dummy model). Predictions will be inaccurate. Please retrain the model using /retrain endpoint."
+    
+    return result

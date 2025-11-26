@@ -292,12 +292,16 @@ async def retrain(files: List[UploadFile] = File(...)):
         print(f"Model will be saved to: {new_model_path}")
         
         try:
+            # Try with 3 epochs for better accuracy (may timeout on Railway free tier)
+            # If it times out, reduce to 1 epoch
+            epochs_to_use = 3  # Increased from 1 for better accuracy
+            print(f"Training with {epochs_to_use} epochs for better accuracy...")
             result = retrain_model(
                 TRAIN_DIR, 
                 VAL_DIR, 
                 num_classes, 
                 new_model_path,
-                epochs=1  # Reduced to 1 for Railway free tier timeout limits
+                epochs=epochs_to_use
             )
             print(f"Retraining completed successfully")
         except Exception as train_error:
