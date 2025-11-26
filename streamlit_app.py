@@ -11,7 +11,8 @@ import time
 # -----------------------------
 # API URL (Change when deployed)
 # -----------------------------
-API_URL = "https://mlp-summative-2.onrender.com"
+# Deployed FastAPI on Railway
+API_URL = "https://mlpsummative-production.up.railway.app"
 
 # Class names matching the model
 CLASS_NAMES = [
