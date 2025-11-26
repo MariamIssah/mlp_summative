@@ -6,28 +6,24 @@ from src.preprocessing import get_data_generators
 
 
 def build_small_model(num_classes: int = 15):
-    """Build a small but effective model for Railway deployment"""
+    """Build a balanced model for Railway - good accuracy, reasonable size"""
     inputs = layers.Input(shape=(224, 224, 3))
     
-    # Better architecture for accuracy while keeping size reasonable
-    x = layers.Conv2D(32, 3, activation="relu", padding="same")(inputs)
-    x = layers.BatchNormalization()(x)
+    # Optimized architecture - good accuracy without being too heavy
+    x = layers.Conv2D(32, 3, activation="relu")(inputs)
     x = layers.MaxPooling2D(2, 2)(x)
-    x = layers.Dropout(0.25)(x)
+    x = layers.Dropout(0.2)(x)
     
-    x = layers.Conv2D(64, 3, activation="relu", padding="same")(x)
-    x = layers.BatchNormalization()(x)
+    x = layers.Conv2D(64, 3, activation="relu")(x)
     x = layers.MaxPooling2D(2, 2)(x)
-    x = layers.Dropout(0.25)(x)
+    x = layers.Dropout(0.3)(x)
     
-    x = layers.Conv2D(128, 3, activation="relu", padding="same")(x)
-    x = layers.BatchNormalization()(x)
+    x = layers.Conv2D(128, 3, activation="relu")(x)
     x = layers.MaxPooling2D(2, 2)(x)
-    x = layers.Dropout(0.5)(x)
+    x = layers.Dropout(0.4)(x)
     
     x = layers.Flatten()(x)
     x = layers.Dense(128, activation="relu")(x)
-    x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.5)(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
     
@@ -76,10 +72,13 @@ if __name__ == "__main__":
         class_mode='categorical'
     )
 
+    # Define output path first
+    out_path = os.path.join(base_dir, "models", "best_model.h5")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    
     model = build_small_model(num_classes=15)
 
-    # Use minimal training to reduce memory usage on Railway
-    # Single epoch with smaller batch processing
+    # Configure TensorFlow for Railway
     import tensorflow as tf
     # Limit memory growth to prevent OOM
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -90,46 +89,53 @@ if __name__ == "__main__":
         except RuntimeError as e:
             print(f"GPU config error: {e}")
     
-    # Train with multiple epochs for better accuracy
-    # Use callbacks to save best model and early stopping
-    from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+    # Train with callbacks for better accuracy
+    # Use fewer epochs to avoid Railway timeout
+    from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
     
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True, verbose=1),
-        ModelCheckpoint(out_path, monitor='val_loss', save_best_only=True, verbose=1),
-        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-7, verbose=1)
+        EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True, verbose=1),
+        ModelCheckpoint(out_path, monitor='val_loss', save_best_only=True, verbose=1)
     ]
     
-    # Train for up to 5 epochs (will stop early if validation doesn't improve)
-    # This balances accuracy with build time
-    print("Starting training with early stopping...")
-    history = model.fit(
-        train_gen,
-        validation_data=val_gen,
-        epochs=5,  # Will stop early if no improvement
-        callbacks=callbacks,
-        verbose=1
-    )
-    
-    # Load the best model (saved by ModelCheckpoint)
-    from tensorflow.keras.models import load_model
-    if os.path.exists(out_path):
-        model = load_model(out_path)
-        print("✓ Loaded best model from checkpoint")
+    # Train for 3 epochs max (will stop early if validation doesn't improve)
+    # This balances accuracy with Railway build time limits
+    print("Starting training (max 3 epochs with early stopping)...")
+    try:
+        history = model.fit(
+            train_gen,
+            validation_data=val_gen,
+            epochs=3,  # Reduced to 3 to avoid Railway timeout
+            callbacks=callbacks,
+            verbose=1
+        )
         
-        # Evaluate final accuracy
-        final_train_acc = history.history['accuracy'][-1] if 'accuracy' in history.history else 0
-        final_val_acc = history.history['val_accuracy'][-1] if 'val_accuracy' in history.history else 0
-        print(f"Final training accuracy: {final_train_acc:.4f}")
-        print(f"Final validation accuracy: {final_val_acc:.4f}")
-    else:
-        print("Warning: Best model checkpoint not found, using current model")
-
-    # Save to the path expected by the API (/app/models/best_model.h5)
-    out_path = os.path.join(base_dir, "models", "best_model.h5")
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    model.save(out_path)
+        # Load the best model (saved by ModelCheckpoint)
+        from tensorflow.keras.models import load_model
+        if os.path.exists(out_path):
+            model = load_model(out_path)
+            print("✓ Loaded best model from checkpoint")
+            
+            # Evaluate final accuracy
+            if 'accuracy' in history.history and len(history.history['accuracy']) > 0:
+                final_train_acc = history.history['accuracy'][-1]
+                final_val_acc = history.history['val_accuracy'][-1] if 'val_accuracy' in history.history else 0
+                print(f"Final training accuracy: {final_train_acc:.4f}")
+                print(f"Final validation accuracy: {final_val_acc:.4f}")
+        else:
+            print("Warning: Best model checkpoint not found, saving current model...")
+            model.save(out_path)
+    except Exception as e:
+        print(f"Training error: {e}")
+        print("Saving current model anyway...")
+        model.save(out_path)
+        raise
+    
+    # Final save to ensure model is saved
+    if not os.path.exists(out_path):
+        model.save(out_path)
+    
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
-    print(f"Saved small model to {out_path} ({size_mb:.2f} MB)")
+    print(f"✓ Saved model to {out_path} ({size_mb:.2f} MB)")
 
 
