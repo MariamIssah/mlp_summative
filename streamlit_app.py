@@ -11,9 +11,9 @@ import time
 # -----------------------------
 # API URL (Auto-detect based on environment)
 # -----------------------------
-# Use Railway API by default (hosted API)
+# Use Render API (working accurately) or Railway API
 # For local API development, set environment variable: API_URL=http://localhost:8000
-API_URL = os.getenv("API_URL", "https://mlpsummative-production.up.railway.app")
+API_URL = os.getenv("API_URL", "https://mlp-summative-2.onrender.com")
 
 # Class names matching the model
 CLASS_NAMES = [
@@ -30,14 +30,21 @@ def check_api_status():
     """Check if API is running"""
     try:
         response = requests.get(f"{API_URL}/", timeout=10)
-        return response.status_code == 200, response.json().get("message", "API is running")
-    except:
-        return False, "API is not responding"
+        if response.status_code == 200:
+            data = response.json() if response.content else {}
+            return True, data.get("message", "API is running"), data.get("model_loaded", False)
+        return False, f"API returned status {response.status_code}", False
+    except requests.exceptions.Timeout:
+        return False, "API is not responding (Timeout)", False
+    except requests.exceptions.ConnectionError:
+        return False, "API is not responding (Connection Error)", False
+    except Exception as e:
+        return False, f"API check failed: {str(e)}", False
 
 def get_model_uptime():
     """Get model uptime information"""
-    is_up, message = check_api_status()
-    return is_up, message, datetime.now()
+    is_up, message, model_loaded = check_api_status()
+    return is_up, message, datetime.now(), model_loaded
 
 # HOME PAGE
 def home_page():
@@ -52,7 +59,7 @@ def home_page():
 
     # Model Uptime Status
     st.markdown("### Model Status")
-    is_up, message, current_time = get_model_uptime()
+    is_up, message, current_time, model_loaded = get_model_uptime()
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -63,6 +70,8 @@ def home_page():
     
     with col2:
         st.info(f"**Status:** {message}")
+        if is_up and not model_loaded:
+            st.warning("Model not loaded")
     
     with col3:
         st.info(f"**Last Check:** {current_time.strftime('%H:%M:%S')}")
@@ -437,9 +446,11 @@ try:
     st.sidebar.divider()
     st.sidebar.markdown("### API Status")
     try:
-        is_up, message = check_api_status()
+        is_up, message, model_loaded = check_api_status()
         if is_up:
             st.sidebar.success("Online")
+            if not model_loaded:
+                st.sidebar.warning("Model not loaded")
         else:
             st.sidebar.error("Offline")
     except Exception as e:
