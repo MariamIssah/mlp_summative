@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all application code (including models, data, scripts, etc.)
 COPY . /app
 
+# Build a small model at image build time using the minimal dataset
+RUN mkdir -p /app/models && python scripts/train_small_model_for_railway.py
+
 # Ensure start script is executable
 RUN chmod +x /app/start.sh
 
