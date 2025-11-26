@@ -4,6 +4,7 @@ from src.prediction import load_trained_model, predict_image
 from src.retrain import retrain_model
 import os
 from typing import List
+import traceback
 
 app = FastAPI(title="Vegetable Classification API")
 
@@ -137,13 +138,17 @@ async def retrain(files: List[UploadFile] = File(...)):
             new_model_path = os.path.join(BASE_DIR, "models", "best_model.h5")
 
         # Call retrain_model to train from scratch
+        # Note: Using 1 epoch for Render free tier to avoid timeout
+        # For production with more epochs, consider using background jobs
+        print(f"Starting retraining with 1 epoch (reduced for timeout limits)...")
         result = retrain_model(
             TRAIN_DIR, 
             VAL_DIR, 
             num_classes, 
             new_model_path,
-            epochs=10
+            epochs=1  # Reduced to 1 for Render free tier timeout limits
         )
+        print(f"Retraining completed successfully")
 
         # Reload the model after retraining
         # Check if model was saved to Docker path or relative path
@@ -173,7 +178,13 @@ async def retrain(files: List[UploadFile] = File(...)):
         }
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        error_details = {
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+        print(f"Error in retrain endpoint: {e}")
+        print(traceback.format_exc())
+        return JSONResponse(status_code=500, content=error_details)
 
 
 @app.get("/")
