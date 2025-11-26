@@ -14,18 +14,13 @@ RUN apt-get update && apt-get install -y git git-lfs && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy .gitattributes to know which files are LFS-tracked
-COPY .gitattributes /app/.gitattributes
-
-# Copy models directory (if Git LFS files aren't pulled, this will copy pointers)
-# We'll verify and handle this in the application code
-COPY models /app/models
-
-# Copy all application code
+# Copy all application code (including data/train_min, data/validation_min, scripts, etc.)
 COPY . /app
 
-# Copy and make start script executable
-COPY start.sh /app/start.sh
+# Build a small model at image build time using the minimal dataset
+RUN mkdir -p /app/models && python scripts/train_small_model_for_railway.py
+
+# Ensure start script is executable
 RUN chmod +x /app/start.sh
 
 # Expose port for FastAPI

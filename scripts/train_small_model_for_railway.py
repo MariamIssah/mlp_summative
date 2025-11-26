@@ -41,7 +41,9 @@ if __name__ == "__main__":
         epochs=3,
     )
 
-    out_path = os.path.join(base_dir, "models", "best_model_small.h5")
+    # Save to the path expected by the API (/app/models/best_model.h5)
+    out_path = os.path.join(base_dir, "models", "best_model.h5")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     model.save(out_path)
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
     print(f"Saved small model to {out_path} ({size_mb:.2f} MB)")

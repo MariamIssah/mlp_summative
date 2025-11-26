@@ -33,37 +33,23 @@ else:
 model = None
 
 def load_model(model_path=None):
-    """Load or reload the model"""
+    """Load or reload the model using the existing trained file.
+
+    This is intentionally simple so it works both locally and on Railway
+    with the already-trained model file (best_model.h5).
+    """
     global model, MODEL_PATH
     if model_path:
         MODEL_PATH = model_path
-    
-    # Check if model file exists and is valid
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
-    
-    # Check if file is a Git LFS pointer (starts with "version https://git-lfs")
+
+    print(f"Attempting to load model from {MODEL_PATH}...")
     try:
-        with open(MODEL_PATH, 'r', encoding='utf-8') as f:
-            first_line = f.readline()
-            if first_line.startswith('version https://git-lfs'):
-                raise ValueError(f"Model file at {MODEL_PATH} is a Git LFS pointer, not the actual file. Please ensure Git LFS files are properly pulled.")
-    except (UnicodeDecodeError, ValueError):
-        # File is binary (good) or already raised our error
-        pass
-    
-    # Check file size (H5 files should be > 1MB, pointers are < 1KB)
-    file_size = os.path.getsize(MODEL_PATH)
-    if file_size < 1024:  # Less than 1KB is suspicious
-        raise ValueError(f"Model file at {MODEL_PATH} is too small ({file_size} bytes). It may be a Git LFS pointer. Actual model files are typically > 100MB.")
-    
-    try:
-        model = load_trained_model(MODEL_PATH)
-        print(f"Model loaded successfully from {MODEL_PATH} (size: {file_size / (1024*1024):.2f} MB)")
+        model_local = load_trained_model(MODEL_PATH)
+        model = model_local
+        print(f"Model loaded successfully from {MODEL_PATH}")
     except Exception as e:
         print(f"Error loading model from {MODEL_PATH}: {e}")
-        print(f"File exists: {os.path.exists(MODEL_PATH)}, Size: {file_size} bytes")
-        raise
+        # Leave model as None; /predict will return 503 in this case
 
 # Load model at startup (non-blocking for health checks)
 # Model loading happens in background to allow health checks to respond quickly
