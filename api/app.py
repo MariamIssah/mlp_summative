@@ -54,12 +54,32 @@ else:
 TRAIN_DIR = os.path.join(BASE_DIR, "data", "train")
 VAL_DIR = os.path.join(BASE_DIR, "data", "validation")
 UPLOAD_DIR = os.path.join(BASE_DIR, "data", "retrain_uploads")
+
+# Create directories if they don't exist
+os.makedirs(TRAIN_DIR, exist_ok=True)
+os.makedirs(VAL_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Debug: Print paths for troubleshooting
 print(f"BASE_DIR: {BASE_DIR}")
 print(f"TRAIN_DIR: {TRAIN_DIR} (exists: {os.path.exists(TRAIN_DIR)})")
 print(f"VAL_DIR: {VAL_DIR} (exists: {os.path.exists(VAL_DIR)})")
+
+# Check if directories have any image files
+def has_training_data(dir_path):
+    """Check if directory has any image files"""
+    if not os.path.exists(dir_path):
+        return False
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                return True
+    return False
+
+TRAIN_DATA_AVAILABLE = has_training_data(TRAIN_DIR)
+VAL_DATA_AVAILABLE = has_training_data(VAL_DIR)
+print(f"Training data available: {TRAIN_DATA_AVAILABLE}")
+print(f"Validation data available: {VAL_DATA_AVAILABLE}")
 
 
 @app.post("/predict")
@@ -79,16 +99,25 @@ async def predict(file: UploadFile = File(...)):
 @app.post("/retrain")
 async def retrain(files: List[UploadFile] = File(...)):
     try:
-        # Check if training data directories exist
-        if not os.path.exists(TRAIN_DIR):
+        # Check if training data is available
+        if not TRAIN_DATA_AVAILABLE:
             return JSONResponse(
                 status_code=400,
-                content={"error": f"Training data directory not found: {TRAIN_DIR}. Please ensure data/train directory exists in the deployment."}
+                content={
+                    "error": f"Training data not found in {TRAIN_DIR}. The training images are not included in the Docker image because they are excluded by .gitignore. To enable retraining, you need to: 1) Use Git LFS to track the data directory, or 2) Include a minimal training dataset in the repository.",
+                    "train_dir": TRAIN_DIR,
+                    "val_dir": VAL_DIR,
+                    "suggestion": "Add training data to repository using Git LFS: 'git lfs track \"data/train/**\" && git lfs track \"data/validation/**\"'"
+                }
             )
-        if not os.path.exists(VAL_DIR):
+        if not VAL_DATA_AVAILABLE:
             return JSONResponse(
                 status_code=400,
-                content={"error": f"Validation data directory not found: {VAL_DIR}. Please ensure data/validation directory exists in the deployment."}
+                content={
+                    "error": f"Validation data not found in {VAL_DIR}. Please ensure validation images are included in the deployment.",
+                    "train_dir": TRAIN_DIR,
+                    "val_dir": VAL_DIR
+                }
             )
         
         # Save uploaded files
