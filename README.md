@@ -21,19 +21,36 @@ The video demonstration covers:
 - Data visualization features
 - API endpoints and UI functionality
 
-## Deployment URL
+## Deployment URLs
 
-**Cloud Deployment URL:** https://mlpsummative-production.up.railway.app
+### Live Deployments
 
-The application is deployed and accessible at the above URL. The deployment includes:
+1. **Streamlit UI (Streamlit Cloud)**: https://mariamissah-mlp-summative-streamlit-app-xb22ep.streamlit.app/
 
-- FastAPI backend service with prediction and retraining endpoints
-- Model serving endpoints
-- Health check endpoints
+   - ✅ Fully functional web interface
+   - ✅ Connected to Render API for accurate predictions
+   - ✅ All features available: Predict, Retrain, Visualizations
 
-**Streamlit UI Deployment:** The Streamlit UI can be deployed to Streamlit Cloud (recommended) or Railway. See `STREAMLIT_DEPLOYMENT.md` for detailed instructions. The UI automatically connects to the deployed Railway API when running in the cloud.
+2. **Render API (Recommended - Most Accurate)**: https://mlp-summative-2.onrender.com
 
-**Note:** For full functionality including retraining, the API can also be run locally using `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
+   - ✅ Fully functional with high-accuracy predictions
+   - ✅ Model loaded and working correctly
+   - 📖 API Documentation: https://mlp-summative-2.onrender.com/docs
+   - ✅ Best option for production predictions
+
+3. **Railway API**: https://mlpsummative-production.up.railway.app
+   - ⚠️ Functional but has resource limitations
+   - ⚠️ Retraining endpoint may timeout/crash due to free tier limits
+   - 📖 API Documentation: https://mlpsummative-production.up.railway.app/docs
+
+### Local Development
+
+The Streamlit UI can also be run locally:
+
+- Run locally: `streamlit run streamlit_app.py`
+- The UI is configured to use the **Render API** by default for accurate predictions
+
+**Note:** For full functionality including retraining, run the API locally using `uvicorn api.app:app --host 0.0.0.0 --port 8000`. Retraining works perfectly locally but has limitations on cloud platforms due to storage and time constraints.
 
 ## Features
 
@@ -169,14 +186,24 @@ streamlit run streamlit_app.py
 - **Deployed URL:** https://mlpsummative-production.up.railway.app
 - Railway automatically injects a `PORT` environment variable; the Dockerfile uses a start script that properly handles this.
 - Add `DATA_VARIANT=mini` (or `auto`) in Project Settings → Variables so that retraining uses the bundled minimal dataset.
-- **Deployed Model:** Due to Railway free tier memory limits, model training during Docker build is disabled. The API will start successfully, but predictions require a model to be loaded. For production use, either: 1) Train a small model locally using `scripts/train_small_model_for_railway.py` and commit it (if < 100MB), or 2) Use the `/retrain` endpoint to train a model on Railway (may have memory constraints). The full, high-accuracy model (`models/best_model.h5`) is used and evaluated locally in the notebook.
-- **Retraining:** The `/retrain` endpoint may timeout (502 error) on Railway's free tier due to resource limits. Full retraining functionality is demonstrated locally. The deployed API focuses on prediction capabilities.
-- **Model Loading:** If you see a 503 error ("Model not loaded"), the model file is missing. This can happen if:
-  - Model training during Docker build failed (OOM error)
-  - Git LFS model file wasn't pulled correctly
-  - Solution: Use the `/retrain` endpoint to train a model, or check Railway logs for model loading errors
+- **Deployed Model:** The model is trained during Docker build using a lightweight architecture optimized for Railway's free tier. The model provides good accuracy for predictions while staying within memory limits.
+- **Retraining Limitations:** The `/retrain` endpoint **will crash or timeout** on Railway's free tier due to:
+  - **Storage limits**: Insufficient disk space for model training
+  - **Time limits**: Request timeout (typically 60-120 seconds) - model training takes longer
+  - **Memory constraints**: OOM (Out of Memory) errors during training
+  - **Solution**: Retraining works perfectly locally. For cloud deployment, use the pre-trained model included in the Docker image. Full retraining functionality is demonstrated and tested locally.
+- **Model Loading:** The model loads automatically during Docker build. If you see a 503 error ("Model not loaded"), check Railway logs for model loading errors.
 - Railway health checks issue `HEAD /` and `GET /` requests. The service will start and remain running even if the model is still loading in the background.
 - Test your deployment at `https://mlpsummative-production.up.railway.app/docs` once the service is running.
+
+### Render Deployment Notes
+
+- **Deployed URL:** https://mlp-summative-2.onrender.com
+- **Status:** ✅ **Working with accurate predictions**
+- Render deployment uses the full trained model and provides high-accuracy predictions (99%+ confidence).
+- The Streamlit UI is configured to use the Render API by default for accurate predictions.
+- Set the environment variable `DATA_VARIANT=mini` on the Render service to force the API to use the lightweight dataset for retraining.
+- Ensure `PYTHONPATH` is set to `/app` and the start command is `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
 
 ### API Endpoints
 
@@ -374,6 +401,82 @@ All required dependencies are listed in `requirements.txt`. Key packages include
 - matplotlib
 - locust
 
+## Deployment Challenges and Solutions
+
+### Challenges Encountered
+
+During the deployment process, several significant challenges were encountered:
+
+#### 1. **Model File Size and Git LFS Issues**
+
+- **Problem**: The trained model file (`best_model.h5`) is 134MB, exceeding GitHub's file size limits
+- **Solution**: Implemented Git LFS (Large File Storage) to track model files. However, this caused issues with cloud deployments where LFS files weren't always pulled correctly
+- **Workaround**: Created a lightweight model training script (`scripts/train_small_model_for_railway.py`) that trains a smaller model during Docker build
+
+#### 2. **Memory Constraints on Free Tier Platforms**
+
+- **Problem**: Railway and Render free tiers have strict memory limits (typically 512MB-1GB)
+- **Impact**:
+  - Model training during Docker build would fail with "Out of Memory" errors
+  - Large model files couldn't be loaded
+  - Training scripts with full datasets would crash
+- **Solution**:
+  - Optimized model architecture to use less memory
+  - Reduced batch sizes (32 → 8)
+  - Created minimal dataset subsets (`data/train_min`, `data/validation_min`)
+  - Implemented fallback dummy model creation if training fails
+
+#### 3. **Retraining Endpoint Timeout Issues**
+
+- **Problem**: The `/retrain` endpoint consistently crashes or times out on cloud platforms
+- **Root Causes**:
+  - **Storage limits**: Insufficient disk space for saving trained models
+  - **Time limits**: Cloud platforms (Railway/Render) have request timeout limits (60-120 seconds)
+  - **Memory limits**: Model training requires significant RAM, causing OOM errors
+  - **CPU constraints**: Free tier CPU resources are limited, making training extremely slow
+- **Current Status**:
+  - ✅ **Works perfectly locally** - Full retraining functionality with high accuracy
+  - ❌ **Fails on cloud platforms** - Timeout or crash due to resource constraints
+- **Solution**:
+  - Retraining is demonstrated and tested locally
+  - Cloud deployment focuses on prediction capabilities using pre-trained models
+  - For production retraining, use local environment or upgrade to paid cloud tiers
+
+#### 4. **Model Loading and Path Issues**
+
+- **Problem**: Model file paths differed between local, Docker, and cloud environments
+- **Solution**: Implemented multi-path detection that checks:
+  - `/app/models/best_model.h5` (Docker/Railway)
+  - `models/best_model.h5` (local/Render)
+  - Relative paths as fallback
+- **Result**: Model loading now works reliably across all environments
+
+#### 5. **Streamlit Cloud Deployment Issues**
+
+- **Problem**: Streamlit Cloud tried to install all dependencies including TensorFlow (very large)
+- **Solution**: Created separate `requirements.txt` (minimal for Streamlit) and `requirements-api.txt` (full dependencies for API)
+- **Additional Issue**: `packages.txt` had comments that were interpreted as package names
+- **Solution**: Made `packages.txt` empty (no system packages needed)
+
+#### 6. **Health Check and Startup Issues**
+
+- **Problem**: Railway health checks would fail if model loading blocked startup
+- **Solution**: Implemented background model loading with threading, allowing health checks to respond immediately while model loads in the background
+
+### Current Deployment Status
+
+- ✅ **Render API**: Fully functional with accurate predictions (https://mlp-summative-2.onrender.com)
+- ⚠️ **Railway API**: Deployed but retraining has limitations (https://mlpsummative-production.up.railway.app)
+- ✅ **Streamlit UI**: Configured to use Render API for accurate predictions
+- ✅ **Local Environment**: All features work perfectly including full retraining
+
+### Recommendations
+
+1. **For Production Retraining**: Use local environment or upgrade to paid cloud tiers with more resources
+2. **For Predictions**: Use Render API (most accurate) or Railway API (functional)
+3. **For Development**: Run locally with full dataset for best performance
+4. **For Demonstrations**: Use pre-trained models included in Docker images
+
 ## Troubleshooting
 
 ### Common Issues
@@ -382,6 +485,8 @@ All required dependencies are listed in `requirements.txt`. Key packages include
 2. **Model file not found**: Ensure `models/best_model.h5` exists in the models directory
 3. **Data directory missing**: Verify that the data directory structure matches the expected format
 4. **Docker build fails**: Check that all files are present and Docker has sufficient resources
+5. **Retrain endpoint crashes**: This is expected on free tier cloud platforms. Use local environment for retraining.
+6. **503 Model not loaded**: Check Railway/Render logs. Model should load during Docker build. If not, check for OOM errors.
 
 ### Getting Help
 
@@ -390,6 +495,7 @@ For issues or questions:
 1. Check the API documentation at `/docs` endpoint
 2. Review the Jupyter notebook for model training details
 3. Consult the load testing guide in `LOAD_TESTING.md`
+4. For retraining: Use local environment - cloud platforms have resource limitations
 
 ## Future Improvements
 
