@@ -111,9 +111,13 @@ pip install -r requirements.txt
 
 3. Ensure the data directory structure is in place:
 
-   - `data/train/` - Training images organized by class
-   - `data/validation/` - Validation images organized by class
+   - `data/train/` - Full training images organized by class (used locally)
+   - `data/validation/` - Full validation images organized by class (used locally)
+   - `data/train_min/` - Lightweight subset for cloud retraining demos
+   - `data/validation_min/` - Lightweight subset for cloud retraining demos
    - `data/test/` - Test images organized by class
+
+   Use `python scripts/create_min_dataset.py --train-count 40 --val-count 12` to regenerate the minimal subset if needed.
 
 4. Ensure model files are present in the `models/` directory:
    - `best_model.h5` - Trained model file
@@ -148,6 +152,20 @@ streamlit run streamlit_app.py
 ```
 
 3. Access the Streamlit interface at `http://localhost:8501`
+
+### Render Deployment Notes
+
+- Set the environment variable `DATA_VARIANT=mini` on the Render service to force the API to use the lightweight dataset.
+- Commit and push the `data/train_min` and `data/validation_min` folders (already included in this repository) before deploying; without them the `/retrain` endpoint will raise `No such file or directory: 'data/train'`.
+- Ensure `PYTHONPATH` is set to `/app` and the start command is `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
+- The Docker build excludes the large `data/train` and `data/validation` folders to keep the image within Render limits. The minimal subset is copied into the image automatically.
+
+### Railway Deployment Notes
+
+- Railway automatically injects a `PORT` environment variable; the Dockerfile now accepts it via `uvicorn api.app:app --port ${PORT:-8000}`, so no extra command overrides are required.
+- Add `DATA_VARIANT=mini` (or `auto`) in Project Settings → Variables so that retraining uses the bundled minimal dataset.
+- Confirm the Git repository includes `data/train_min/**` and `data/validation_min/**` before triggering a deploy; otherwise `/retrain` will fail with missing directory errors.
+- Railway health checks issue `HEAD /` requests, so keep the service running until the green checkmark appears, then open `https://<railway-app>.up.railway.app/docs` to test predict/retrain.
 
 ### API Endpoints
 

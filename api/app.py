@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from src.prediction import load_trained_model, predict_image
 from src.retrain import retrain_model
 import os
@@ -46,41 +46,60 @@ class_names = [
 ]
 
 # Paths to training and test data (match your folder structure)
-# Use absolute paths for Docker/Render
 if os.path.exists("/app"):
-    BASE_DIR = "/app"  # Docker environment
+    BASE_DIR = "/app"  # Docker/Render container
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(__file__)) if os.path.dirname(__file__) else os.getcwd()
 
-TRAIN_DIR = os.path.join(BASE_DIR, "data", "train")
-VAL_DIR = os.path.join(BASE_DIR, "data", "validation")
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "retrain_uploads")
+DATA_VARIANT = os.getenv("DATA_VARIANT", "auto").lower()
 
-# Create directories if they don't exist
-os.makedirs(TRAIN_DIR, exist_ok=True)
-os.makedirs(VAL_DIR, exist_ok=True)
+PREFERRED_TRAIN_DIR = os.path.join(BASE_DIR, "data", "train")
+FALLBACK_TRAIN_DIR = os.path.join(BASE_DIR, "data", "train_min")
+PREFERRED_VAL_DIR = os.path.join(BASE_DIR, "data", "validation")
+FALLBACK_VAL_DIR = os.path.join(BASE_DIR, "data", "validation_min")
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "retrain_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Debug: Print paths for troubleshooting
-print(f"BASE_DIR: {BASE_DIR}")
-print(f"TRAIN_DIR: {TRAIN_DIR} (exists: {os.path.exists(TRAIN_DIR)})")
-print(f"VAL_DIR: {VAL_DIR} (exists: {os.path.exists(VAL_DIR)})")
 
-# Check if directories have any image files
 def has_training_data(dir_path):
-    """Check if directory has any image files"""
+    """Check if directory has any image files."""
     if not os.path.exists(dir_path):
         return False
-    for root, dirs, files in os.walk(dir_path):
+    for _, _, files in os.walk(dir_path):
         for file in files:
-            if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+            if file.lower().endswith((".jpg", ".jpeg", ".png")):
                 return True
     return False
 
-TRAIN_DATA_AVAILABLE = has_training_data(TRAIN_DIR)
-VAL_DATA_AVAILABLE = has_training_data(VAL_DIR)
-print(f"Training data available: {TRAIN_DATA_AVAILABLE}")
-print(f"Validation data available: {VAL_DATA_AVAILABLE}")
+
+def select_dataset(preferred, fallback, label):
+    """Pick the dataset directory to use and report availability."""
+    preferred_has = has_training_data(preferred)
+    fallback_has = has_training_data(fallback)
+
+    if DATA_VARIANT in ("mini", "minimal", "small", "subset"):
+        if fallback_has:
+            print(f"DATA_VARIANT={DATA_VARIANT}: using {label} fallback at {fallback}")
+            return fallback, True
+        print(f"DATA_VARIANT requested minimal {label} dataset but {fallback} is missing.")
+
+    if preferred_has:
+        return preferred, True
+
+    if fallback_has:
+        print(f"{label.capitalize()} data missing at {preferred}; using fallback {fallback}")
+        return fallback, True
+
+    return preferred, False
+
+
+TRAIN_DIR, TRAIN_DATA_AVAILABLE = select_dataset(PREFERRED_TRAIN_DIR, FALLBACK_TRAIN_DIR, "train")
+VAL_DIR, VAL_DATA_AVAILABLE = select_dataset(PREFERRED_VAL_DIR, FALLBACK_VAL_DIR, "validation")
+
+print(f"BASE_DIR: {BASE_DIR}")
+print(f"Selected TRAIN_DIR: {TRAIN_DIR} (has data: {TRAIN_DATA_AVAILABLE})")
+print(f"Selected VAL_DIR: {VAL_DIR} (has data: {VAL_DATA_AVAILABLE})")
+print(f"UPLOAD_DIR: {UPLOAD_DIR}")
 
 
 @app.post("/predict")
@@ -190,3 +209,8 @@ async def retrain(files: List[UploadFile] = File(...)):
 @app.get("/")
 def home():
     return {"message": "Vegetable Classification API is running "}
+
+
+@app.head("/")
+def health_head():
+    return Response(status_code=200)

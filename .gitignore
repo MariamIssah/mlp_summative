@@ -31,6 +31,8 @@ data/test/**/*.jpg
 data/test/**/*.png
 # data/validation/**/*.jpg  # Tracked with Git LFS
 # data/validation/**/*.png  # Tracked with Git LFS
+!data/train_min/**
+!data/validation_min/**
 data/retrain_uploads/
 data/Vegetable Images/
 
