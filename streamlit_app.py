@@ -11,7 +11,7 @@ import time
 # -----------------------------
 # API URL (Change when deployed)
 # -----------------------------
-API_URL = "http://localhost:8000"
+API_URL = "https://mlp-summative-2.onrender.com"
 
 # Class names matching the model
 CLASS_NAMES = [
@@ -27,7 +27,7 @@ CLASS_NAMES = [
 def check_api_status():
     """Check if API is running"""
     try:
-        response = requests.get(f"{API_URL}/", timeout=2)
+        response = requests.get(f"{API_URL}/", timeout=10)
         return response.status_code == 200, response.json().get("message", "API is running")
     except:
         return False, "API is not responding"
@@ -114,7 +114,8 @@ def prediction_page():
                 
                 response = requests.post(
                     f"{API_URL}/predict",
-                    files={"file": ("image.png", img_bytes, "image/png")}
+                    files={"file": ("image.png", img_bytes, "image/png")},
+                    timeout=30
                 )
 
             if response.status_code == 200:
@@ -214,7 +215,7 @@ def retrain_page():
                 for f in uploaded_files:
                     files.append(("files", (f.name, f, f"type/{f.type.split('/')[-1]}")))
 
-                response = requests.post(f"{API_URL}/retrain", files=files)
+                response = requests.post(f"{API_URL}/retrain", files=files, timeout=600)
 
                 if response.status_code == 200:
                     st.success("Model retrained successfully!")
