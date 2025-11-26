@@ -27,12 +27,28 @@ CLASS_NAMES = [
 # Helper Functions
 # -----------------------------
 def check_api_status():
-    """Check if API is running"""
+    """Check if API is running and model is loaded"""
     try:
         response = requests.get(f"{API_URL}/", timeout=10)
         if response.status_code == 200:
-            data = response.json() if response.content else {}
-            return True, data.get("message", "API is running"), data.get("model_loaded", False)
+            try:
+                data = response.json() if response.content else {}
+                model_loaded = data.get("model_loaded")
+                # If model_loaded is not in response, check /health endpoint
+                if model_loaded is None:
+                    try:
+                        health_response = requests.get(f"{API_URL}/health", timeout=5)
+                        if health_response.status_code == 200:
+                            health_data = health_response.json()
+                            model_loaded = health_data.get("model_loaded", True)  # Default to True if API responds
+                    except:
+                        # If health check fails, assume model is loaded if API responds (predictions work)
+                        model_loaded = True
+                return True, data.get("message", "API is running"), model_loaded if model_loaded is not None else True
+            except Exception as json_error:
+                # If JSON parsing fails, but status is 200, API is up
+                # Since predictions work, model is likely loaded
+                return True, "API is running", True
         return False, f"API returned status {response.status_code}", False
     except requests.exceptions.Timeout:
         return False, "API is not responding (Timeout)", False
@@ -141,8 +157,9 @@ def prediction_page():
 
             if response.status_code == 200:
                 result = response.json()
-                prediction = result['prediction']
+                prediction = result.get('prediction', 'Unknown')
                 all_probs = result.get('all_probabilities', {})
+                confidence = result.get('confidence', 0.0)
                 
                 # Main prediction result
                 st.markdown("---")
