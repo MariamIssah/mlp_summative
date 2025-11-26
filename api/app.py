@@ -196,6 +196,34 @@ print(f"Selected VAL_DIR: {VAL_DIR} (has data: {VAL_DATA_AVAILABLE})")
 print(f"UPLOAD_DIR: {UPLOAD_DIR}")
 
 
+@app.get("/model-info")
+def model_info():
+    """Get information about the loaded model"""
+    if model is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Model not loaded", "model_path": MODEL_PATH}
+        )
+    
+    # Try to get class indices from training data if available
+    class_indices_info = {}
+    try:
+        from src.preprocessing import get_data_generators
+        if TRAIN_DATA_AVAILABLE:
+            train_gen, _ = get_data_generators(TRAIN_DIR, VAL_DIR)
+            class_indices_info = train_gen.class_indices
+    except:
+        pass
+    
+    return {
+        "model_loaded": True,
+        "model_path": MODEL_PATH,
+        "class_names": class_names,
+        "num_classes": len(class_names),
+        "data_generator_class_indices": class_indices_info,
+        "note": "If predictions are wrong, verify class_names order matches data_generator_class_indices (alphabetical order)"
+    }
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     try:
@@ -297,6 +325,24 @@ async def retrain(files: List[UploadFile] = File(...)):
         
         try:
             load_model(reload_path)
+            print("Model reloaded successfully after retraining")
+            
+            # Try to load and verify class indices from saved file
+            try:
+                import json
+                class_indices_path = os.path.join(os.path.dirname(reload_path), "class_indices.json")
+                if os.path.exists(class_indices_path):
+                    with open(class_indices_path, 'r') as f:
+                        saved_indices = json.load(f)
+                    print(f"Class indices from training: {saved_indices}")
+                    sorted_classes = sorted(saved_indices.items(), key=lambda x: x[1])
+                    expected_order = [name for name, idx in sorted_classes]
+                    print(f"Expected class order: {expected_order}")
+                    print(f"Current class_names order: {class_names}")
+                    if expected_order != class_names:
+                        print(f"WARNING: Class order mismatch! Expected: {expected_order}, Got: {class_names}")
+            except Exception as e:
+                print(f"Could not load class indices: {e}")
         except Exception as e:
             print(f"Warning: Could not reload model after retraining: {e}")
             # Model might still be usable, continue
