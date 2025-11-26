@@ -45,10 +45,21 @@ class_names = [
 ]
 
 # Paths to training and test data (match your folder structure)
-TRAIN_DIR = "data/train"
-VAL_DIR = "data/validation"
-UPLOAD_DIR = "data/retrain_uploads"
+# Use absolute paths for Docker/Render
+if os.path.exists("/app"):
+    BASE_DIR = "/app"  # Docker environment
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(__file__)) if os.path.dirname(__file__) else os.getcwd()
+
+TRAIN_DIR = os.path.join(BASE_DIR, "data", "train")
+VAL_DIR = os.path.join(BASE_DIR, "data", "validation")
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "retrain_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Debug: Print paths for troubleshooting
+print(f"BASE_DIR: {BASE_DIR}")
+print(f"TRAIN_DIR: {TRAIN_DIR} (exists: {os.path.exists(TRAIN_DIR)})")
+print(f"VAL_DIR: {VAL_DIR} (exists: {os.path.exists(VAL_DIR)})")
 
 
 @app.post("/predict")
@@ -68,6 +79,18 @@ async def predict(file: UploadFile = File(...)):
 @app.post("/retrain")
 async def retrain(files: List[UploadFile] = File(...)):
     try:
+        # Check if training data directories exist
+        if not os.path.exists(TRAIN_DIR):
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Training data directory not found: {TRAIN_DIR}. Please ensure data/train directory exists in the deployment."}
+            )
+        if not os.path.exists(VAL_DIR):
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Validation data directory not found: {VAL_DIR}. Please ensure data/validation directory exists in the deployment."}
+            )
+        
         # Save uploaded files
         uploaded_files = []
         for file in files:
@@ -78,7 +101,11 @@ async def retrain(files: List[UploadFile] = File(...)):
             uploaded_files.append(file_path)
 
         num_classes = len(class_names)
-        new_model_path = "models/best_model.h5"
+        # Use absolute path for model save
+        if os.path.exists("/app/models"):
+            new_model_path = "/app/models/best_model.h5"
+        else:
+            new_model_path = os.path.join(BASE_DIR, "models", "best_model.h5")
 
         # Call retrain_model to train from scratch
         result = retrain_model(
