@@ -9,10 +9,16 @@ from datetime import datetime
 import time
 
 # -----------------------------
-# API URL (Change when deployed)
+# API URL (Auto-detect based on environment)
 # -----------------------------
-# Deployed FastAPI on Railway
-API_URL = "https://mlpsummative-production.up.railway.app"
+import os
+# Use Railway API if STREAMLIT_CLOUD environment variable is set (Streamlit Cloud)
+# or if API_URL environment variable is explicitly set
+# Otherwise, use localhost for local development
+if os.getenv("STREAMLIT_CLOUD") or os.getenv("API_URL"):
+    API_URL = os.getenv("API_URL", "https://mlpsummative-production.up.railway.app")
+else:
+    API_URL = "http://localhost:8000"
 
 # Class names matching the model
 CLASS_NAMES = [
@@ -210,18 +216,40 @@ def retrain_page():
         if not uploaded_files:
             st.error("Please upload at least one image.")
         else:
-            with st.spinner("Uploading images and retraining model..."):
-
+            with st.spinner("Uploading images and retraining model... This may take a few minutes..."):
                 files = []
                 for f in uploaded_files:
-                    files.append(("files", (f.name, f, f"type/{f.type.split('/')[-1]}")))
+                    # Read file bytes for requests
+                    file_bytes = f.read()
+                    # Reset file pointer for potential reuse
+                    f.seek(0)
+                    # Use proper MIME type
+                    mime_type = f.type if f.type else "image/jpeg"
+                    files.append(("files", (f.name, file_bytes, mime_type)))
 
-                response = requests.post(f"{API_URL}/retrain", files=files, timeout=600)
+                try:
+                    response = requests.post(
+                        f"{API_URL}/retrain",
+                        files=files,
+                        timeout=600
+                    )
+                except requests.exceptions.Timeout:
+                    st.error("Request timed out. Retraining takes time - try again or check API logs.")
+                    return
+                except Exception as e:
+                    st.error(f"Request failed: {str(e)}")
+                    return
 
                 if response.status_code == 200:
+                    result = response.json()
                     st.success("Model retrained successfully!")
+                    st.markdown("### Training Results")
+                    st.write(f"**Final Train Accuracy:** {result.get('final_train_accuracy', 0):.4f}")
+                    st.write(f"**Final Validation Accuracy:** {result.get('final_val_accuracy', 0):.4f}")
+                    st.write(f"**Epochs Trained:** {result.get('epochs_trained', 0)}")
+                    st.write(f"**Files Uploaded:** {result.get('uploaded_files', 0)}")
                 else:
-                    st.error(f"Error: {response.text}")
+                    st.error(f"Error {response.status_code}: {response.text}")
 
 
 # VISUALIZATIONS PAGE

@@ -31,7 +31,9 @@ The application is deployed and accessible at the above URL. The deployment incl
 - Model serving endpoints
 - Health check endpoints
 
-**Note:** The Streamlit UI is run locally and connects to the deployed API. For full functionality including retraining, the API can also be run locally using `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
+**Streamlit UI Deployment:** The Streamlit UI can be deployed to Streamlit Cloud (recommended) or Railway. See `STREAMLIT_DEPLOYMENT.md` for detailed instructions. The UI automatically connects to the deployed Railway API when running in the cloud.
+
+**Note:** For full functionality including retraining, the API can also be run locally using `uvicorn api.app:app --host 0.0.0.0 --port 8000`.
 
 ## Features
 
