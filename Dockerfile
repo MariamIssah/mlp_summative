@@ -20,15 +20,16 @@ COPY . /app
 
 # Ensure a model file exists - create dummy model as fallback
 # This ensures predictions work even if training fails
-RUN mkdir -p /app/models
-RUN python scripts/create_dummy_model.py || echo "Dummy model creation failed"
-RUN if [ -f "models/best_model.h5" ]; then \
-        cp models/best_model.h5 /app/models/best_model.h5 && \
-        echo "Model file copied to /app/models/"; \
+RUN mkdir -p /app/models && \
+    cd /app && \
+    python scripts/create_dummy_model.py && \
+    if [ -f "models/best_model.h5" ]; then \
+        echo "Model file created successfully"; \
+        ls -lh models/best_model.h5; \
     else \
-        echo "No model file found, dummy model should be in /app/models/"; \
+        echo "ERROR: Model file was not created"; \
+        exit 1; \
     fi
-RUN ls -lh /app/models/ || echo "Models directory listing failed"
 
 # Ensure start script is executable
 RUN chmod +x /app/start.sh
