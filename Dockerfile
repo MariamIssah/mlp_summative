@@ -22,8 +22,7 @@ COPY . /app
 # This ensures build always succeeds
 RUN mkdir -p /app/models && cd /app && \
     if [ -f "models/best_model.h5" ] && [ -s "models/best_model.h5" ]; then \
-        echo "✓ Using existing trained model from repository"; \
-        cp models/best_model.h5 /app/models/best_model.h5; \
+        echo "✓ Using existing trained model from repository (already in /app/models)"; \
     elif [ -d "data/train_min" ] && [ "$(ls -A data/train_min 2>/dev/null)" ]; then \
         echo "Attempting to train model (will fallback to dummy if fails)..."; \
         export TF_CPP_MIN_LOG_LEVEL=2 && \
