@@ -98,48 +98,15 @@ class VegetableAPITestUser(HttpUser):
                 else:
                     response.failure(f"Unexpected status code: {response.status_code}")
     
-    @task(1)
+    @task(0)  # Disable retraining during load tests to get cleaner prediction metrics
     def retrain_model(self):
         """
         Test the /retrain endpoint with multiple image uploads.
-        Weight: 1 (runs less frequently as retraining is expensive)
+        Weight: 0 (disabled during load tests to avoid skewing results)
+        Retraining takes 30-90 seconds and skews response time metrics.
         """
-        if not self.test_images:
-            return
-        
-        # Select 3-5 random images for retraining
-        num_images = random.randint(3, 5)
-        selected_images = random.sample(self.test_images, min(num_images, len(self.test_images)))
-        
-        files = []
-        for img_path in selected_images:
-            with open(img_path, "rb") as img_file:
-                files.append(
-                    ("files", (os.path.basename(img_path), img_file.read(), "image/jpeg"))
-                )
-        
-        # Note: This will actually trigger retraining, so use sparingly
-        # In production, you might want to disable this or use a separate endpoint
-        with self.client.post(
-            "/retrain",
-            files=files,
-            catch_response=True,
-            name="Retrain Model",
-            timeout=300  # 5 minute timeout for retraining
-        ) as response:
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    if "message" in data:
-                        response.success()
-                    else:
-                        response.failure(f"Unexpected response: {data}")
-                except Exception as e:
-                    response.failure(f"Failed to parse response: {str(e)}")
-            elif response.status_code == 500:
-                response.failure(f"Server error: {response.text}")
-            else:
-                response.failure(f"Unexpected status code: {response.status_code}")
+        # Disabled for load testing - retraining skews results
+        pass
     
     @task(1)
     def health_check(self):

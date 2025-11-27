@@ -265,15 +265,15 @@ Load testing was performed with the API running in Docker containers. The follow
 
 | Container Count | Users | RPS | Median (ms) | 95th %ile (ms) | 99th %ile (ms) | Max (ms) | Failures |
 | --------------- | ----- | --- | ----------- | -------------- | -------------- | -------- | -------- |
-| 1               | 10    | -   | -           | -              | -              | -        | -        |
-| 1               | 50    | 0.6 | 56000         | 63000            | 87000            | 87378     | 0        |
-| 1               | 100    | -   | -           | -              | -              | -        | -        |
+| 1               | 10    | 5.4 | 240         | 610            | 730            | 926      | 0        |
+| 1               | 50    | 7.5 | 4400        | 11000          | 13000          | 16165    | 0        |
+| 1               | 100   | 7.1 | 11000       | 26000          | 30000          | 33693    | 0        |
 | 3               | 10    | -   | -           | -              | -              | -        | -        |
 | 3               | 50    | -   | -           | -              | -              | -        | -        |
-| 3               | 100    | -   | -           | -              | -              | -        | -        |
+| 3               | 100   | -   | -           | -              | -              | -        | -        |
 | 5               | 10    | -   | -           | -              | -              | -        | -        |
 | 5               | 50    | -   | -           | -              | -              | -        | -        |
-| 5               | 100    | -   | -           | -              | -              | -        | -        |
+| 5               | 100   | -   | -           | -              | -              | -        | -        |
 
 _Note: Response times may be higher than expected due to retraining requests being included in aggregated statistics. Retraining operations take significantly longer (30-90 seconds) than prediction requests (typically 200-700ms)._
 

@@ -46,15 +46,15 @@ if (-not (Test-Path "results")) {
 
 # Scenario 1: Light Load (10 users) - 1 container
 Write-Host "Scenario 1: Light Load Test (1 container, 10 users)" -ForegroundColor Cyan
-Run-Test -Name "Light Load" -Users 10 -SpawnRate 2 -Duration "60s" -OutputFile "10_users_1_container"
+Run-Test -Name "Light Load" -Users 10 -SpawnRate 2 -Duration "120s" -OutputFile "10_users_1_container"
 
 # Scenario 2: Medium Load (50 users) - 1 container
 Write-Host "Scenario 2: Medium Load Test (1 container, 50 users)" -ForegroundColor Cyan
-Run-Test -Name "Medium Load" -Users 50 -SpawnRate 5 -Duration "120s" -OutputFile "50_users_1_container"
+Run-Test -Name "Medium Load" -Users 50 -SpawnRate 5 -Duration "180s" -OutputFile "50_users_1_container"
 
 # Scenario 3: Heavy Load (100 users) - 1 container
 Write-Host "Scenario 3: Heavy Load Test (1 container, 100 users)" -ForegroundColor Cyan
-Run-Test -Name "Heavy Load" -Users 100 -SpawnRate 10 -Duration "180s" -OutputFile "100_users_1_container"
+Run-Test -Name "Heavy Load" -Users 100 -SpawnRate 10 -Duration "240s" -OutputFile "100_users_1_container"
 
 # Note: For multiple containers (3, 5), you'll need to:
 # 1. Scale docker-compose: docker-compose up --scale api=3
