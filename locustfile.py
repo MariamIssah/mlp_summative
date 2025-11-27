@@ -147,7 +147,7 @@ class VegetableAPITestUser(HttpUser):
         Test the root endpoint for health checks.
         Weight: 1
         """
-        with self.client.get("/", name="Health Check") as response:
+        with self.client.get("/", name="Health Check", catch_response=True) as response:
             if response.status_code == 200:
                 response.success()
             else:

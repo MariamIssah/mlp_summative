@@ -2,13 +2,13 @@
 # This script runs different load test scenarios using Locust
 
 param(
-    [string]$Host = "http://localhost:8000"
+    [string]$ApiHost = "http://localhost:8000"
 )
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "Vegetable Classification API Load Testing" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Host: $Host" -ForegroundColor Yellow
+Write-Host "API Host: $ApiHost" -ForegroundColor Yellow
 Write-Host ""
 
 # Function to run a test scenario
@@ -29,7 +29,7 @@ function Run-Test {
         -u $Users `
         -r $SpawnRate `
         -t $Duration `
-        --host $Host `
+        --host $ApiHost `
         -f locustfile.py `
         --html "results/${OutputFile}.html" `
         --csv "results/${OutputFile}" `
@@ -44,21 +44,21 @@ if (-not (Test-Path "results")) {
     New-Item -ItemType Directory -Path "results" | Out-Null
 }
 
-# Scenario 1: Light Load (10 users)
-Write-Host "Scenario 1: Light Load Test" -ForegroundColor Cyan
-Run-Test -Name "Light Load" -Users 10 -SpawnRate 2 -Duration "60s" -OutputFile "light_load"
+# Scenario 1: Light Load (10 users) - 1 container
+Write-Host "Scenario 1: Light Load Test (1 container, 10 users)" -ForegroundColor Cyan
+Run-Test -Name "Light Load" -Users 10 -SpawnRate 2 -Duration "60s" -OutputFile "10_users_1_container"
 
-# Scenario 2: Medium Load (50 users)
-Write-Host "Scenario 2: Medium Load Test" -ForegroundColor Cyan
-Run-Test -Name "Medium Load" -Users 50 -SpawnRate 5 -Duration "120s" -OutputFile "medium_load"
+# Scenario 2: Medium Load (50 users) - 1 container
+Write-Host "Scenario 2: Medium Load Test (1 container, 50 users)" -ForegroundColor Cyan
+Run-Test -Name "Medium Load" -Users 50 -SpawnRate 5 -Duration "120s" -OutputFile "50_users_1_container"
 
-# Scenario 3: Heavy Load (100 users)
-Write-Host "Scenario 3: Heavy Load Test" -ForegroundColor Cyan
-Run-Test -Name "Heavy Load" -Users 100 -SpawnRate 10 -Duration "180s" -OutputFile "heavy_load"
+# Scenario 3: Heavy Load (100 users) - 1 container
+Write-Host "Scenario 3: Heavy Load Test (1 container, 100 users)" -ForegroundColor Cyan
+Run-Test -Name "Heavy Load" -Users 100 -SpawnRate 10 -Duration "180s" -OutputFile "100_users_1_container"
 
-# Scenario 4: Stress Test (200 users)
-Write-Host "Scenario 4: Stress Test" -ForegroundColor Cyan
-Run-Test -Name "Stress Test" -Users 200 -SpawnRate 20 -Duration "300s" -OutputFile "stress_test"
+# Note: For multiple containers (3, 5), you'll need to:
+# 1. Scale docker-compose: docker-compose up --scale api=3
+# 2. Run tests manually with updated filenames, or modify this script
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "All load tests completed!" -ForegroundColor Green

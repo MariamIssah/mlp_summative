@@ -266,14 +266,16 @@ Load testing was performed with the API running in Docker containers. The follow
 | Container Count | Users | RPS | Median (ms) | 95th %ile (ms) | 99th %ile (ms) | Max (ms) | Failures |
 | --------------- | ----- | --- | ----------- | -------------- | -------------- | -------- | -------- |
 | 1               | 10    | -   | -           | -              | -              | -        | -        |
-| 1               | 50    | -   | -           | -              | -              | -        | -        |
-| 1               | 100   | -   | -           | -              | -              | -        | -        |
+| 1               | 50    | 0.6 | 56000         | 63000            | 87000            | 87378     | 0        |
+| 1               | 100    | -   | -           | -              | -              | -        | -        |
+| 3               | 10    | -   | -           | -              | -              | -        | -        |
 | 3               | 50    | -   | -           | -              | -              | -        | -        |
-| 3               | 100   | -   | -           | -              | -              | -        | -        |
+| 3               | 100    | -   | -           | -              | -              | -        | -        |
+| 5               | 10    | -   | -           | -              | -              | -        | -        |
 | 5               | 50    | -   | -           | -              | -              | -        | -        |
-| 5               | 100   | -   | -           | -              | -              | -        | -        |
+| 5               | 100    | -   | -           | -              | -              | -        | -        |
 
-_Note: Replace the dashes (-) with actual test results after running Locust tests_
+_Note: Response times may be higher than expected due to retraining requests being included in aggregated statistics. Retraining operations take significantly longer (30-90 seconds) than prediction requests (typically 200-700ms)._
 
 ### Key Findings
 
@@ -332,19 +334,43 @@ Detailed load testing documentation is available in `LOAD_TESTING.md`.
 
 ## Model Evaluation
 
-The model was evaluated using multiple metrics as demonstrated in the Jupyter notebook:
+The model was evaluated using multiple metrics as demonstrated in the Jupyter notebook (`notebook/mlp_summative.ipynb`):
 
-- Accuracy: Overall classification accuracy
-- Precision: Per-class precision scores
-- Recall: Per-class recall scores
-- F1-Score: Harmonic mean of precision and recall
-- Confusion Matrix: Detailed classification performance matrix
+### Evaluation Metrics Implemented
+
+✅ **Accuracy**: Overall classification accuracy (tracked during training and validation)
+
+- Final training accuracy: ~93.4%
+- Final validation accuracy: ~97.0%
+
+✅ **Precision**: Per-class precision scores calculated using `sklearn.metrics.classification_report`
+
+- Average precision across all classes: ~0.97
+
+✅ **Recall**: Per-class recall scores calculated using `sklearn.metrics.classification_report`
+
+- Average recall across all classes: ~0.97
+
+✅ **F1-Score**: Harmonic mean of precision and recall
+
+- Average F1-score across all classes: ~0.97
+
+✅ **Confusion Matrix**: Detailed classification performance matrix visualized using `ConfusionMatrixDisplay`
+
+- Shows per-class classification performance
+- Visualized with all 15 vegetable classes
+
+### Notebook Contents
 
 The notebook (`notebook/mlp_summative.ipynb`) contains:
 
 - Complete data preprocessing pipeline
-- Model training with optimization techniques (EarlyStopping, ModelCheckpoint)
-- Comprehensive evaluation metrics
+- Model training with optimization techniques:
+  - EarlyStopping callback
+  - ModelCheckpoint callback
+  - Data augmentation (rotation, zoom, horizontal flip)
+  - Transfer learning with MobileNetV2
+- Comprehensive evaluation metrics (all 4+ required metrics)
 - Feature visualizations and interpretations
 - Single prediction demonstrations
 
